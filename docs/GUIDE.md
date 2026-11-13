@@ -117,9 +117,10 @@ Home directories stay unchanged (unless they were explicitly backed up).
 
 Terminal: `sudo netshift restore latest` (or a number/name from `sudo netshift list`).
 
-### System no longer boots → USB stick with Manjaro (rescue system)
+### System no longer boots → Linux USB boot stick (rescue system)
 
-**Prepare once** (while everything works): boot the Manjaro stick and install netshift on it:
+**Prepare once** (while everything works): boot a Linux USB boot stick and install netshift on it.
+The live system must be Arch-based (e.g. Manjaro, EndeavourOS or Arch), because the installer uses pacman:
 ```bash
 git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh install.sh
 ```
@@ -133,11 +134,11 @@ In the rescue system netshift never creates snapshots, schedule and update snaps
 Restore… → choose the system partition of the computer → **Preview changes** (mounts the disk
 read-only).
 
-**In an emergency:** boot the stick → netshift → snapshot → *Restore…* → choose the system
+**In an emergency:** boot the USB boot stick → netshift → snapshot → *Restore…* → choose the system
 partition of the computer via the drive icon → *Restore*. Then shut down, unplug the stick and
 start the computer.
 
-- Btrfs (Manjaro default): the subvolume `@` is used automatically, `@home` stays untouched.
+- Btrfs (e.g. Manjaro default): the subvolume `@` is used automatically, `@home` stays untouched.
 - **Encrypted disk (LUKS):** the partition is shown with a lock in the drive list. Click it and
   enter the password you use to start the computer – done. If it was already unlocked in the file
   manager, netshift detects that itself. When quitting, netshift locks it again.

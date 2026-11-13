@@ -114,10 +114,11 @@ ausdrücklich mitgesichert).
 
 Terminal: `sudo netshift restore latest` (oder Nummer/Name aus `sudo netshift list`).
 
-### System bootet nicht mehr → USB-Stick mit Manjaro (Rettungssystem)
+### System bootet nicht mehr → Linux-USB-Boot-Stick (Rettungssystem)
 
-**Einmalig vorbereiten** (solange alles läuft): Den Manjaro-Stick starten und darauf netshift
-installieren:
+**Einmalig vorbereiten** (solange alles läuft): Einen Linux-USB-Boot-Stick starten und darauf
+netshift installieren. Das Live-System muss Arch-basiert sein (z.B. Manjaro, EndeavourOS oder Arch),
+weil der Installer pacman verwendet:
 ```bash
 git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh install.sh
 ```
@@ -131,11 +132,11 @@ Im Rettungssystem erstellt netshift nie Snapshots, Zeitplan und Update-Snapshots
 Snapshot wählen → Wiederherstellen → Systempartition des Rechners wählen → **Vorschau der
 Änderungen** (bindet die Platte nur lesend ein).
 
-**Im Notfall:** Stick starten → netshift → Snapshot → *Wiederherstellen* → über das Laufwerk-Symbol
+**Im Notfall:** USB-Boot-Stick starten → netshift → Snapshot → *Wiederherstellen* → über das Laufwerk-Symbol
 die Systempartition des Rechners wählen → *Wiederherstellen*. Danach herunterfahren, Stick abziehen,
 Rechner starten.
 
-- Btrfs (Manjaro-Standard): Das Subvolume `@` wird automatisch verwendet, `@home` bleibt unberührt.
+- Btrfs (z.B. Manjaro-Standard): Das Subvolume `@` wird automatisch verwendet, `@home` bleibt unberührt.
 - **Verschlüsselte Festplatte (LUKS):** In der Laufwerksliste steht die Partition mit einem Schloss.
   Anklicken, das Passwort eingeben, mit dem du den Rechner startest – fertig. Wurde sie schon im
   Dateimanager entsperrt, erkennt netshift das selbst. Beim Beenden sperrt netshift sie wieder.
