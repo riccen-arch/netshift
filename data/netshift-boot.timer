@@ -1,0 +1,8 @@
+[Unit]
+Description=netshift: Boot-Snapshot 10 Minuten nach dem Start
+
+[Timer]
+OnBootSec=10min
+
+[Install]
+WantedBy=timers.target

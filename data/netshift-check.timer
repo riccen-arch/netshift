@@ -1,0 +1,11 @@
+[Unit]
+Description=netshift: stündlich prüfen, ob ein Snapshot fällig ist
+
+[Timer]
+OnCalendar=hourly
+OnBootSec=15min
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

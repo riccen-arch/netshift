@@ -1,0 +1,10 @@
+[Unit]
+Description=netshift: geplante System-Snapshots
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/netshift check
+Nice=10
+IOSchedulingClass=idle

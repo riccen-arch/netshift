@@ -1,0 +1,44 @@
+#!/bin/sh
+# Startet die netshift-Oberfläche mit Root-Rechten (pkexec).
+# pkexec entfernt Umgebungsvariablen – Display und Farbschema werden als Argumente übergeben.
+
+scheme=default
+if command -v gsettings >/dev/null 2>&1; then
+    case "$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null)" in
+        *dark*) scheme=dark ;; *light*) scheme=light ;;
+    esac
+    case "$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)" in
+        *[Dd]ark*) scheme=dark ;;
+    esac
+fi
+kg="${XDG_CONFIG_HOME:-$HOME/.config}/kdeglobals"
+if [ -f "$kg" ] && grep -qiE '^(ColorScheme|LookAndFeelPackage)=.*dark' "$kg"; then
+    scheme=dark
+fi
+set -- "--color-scheme=$scheme" "$@"
+if [ -n "$WAYLAND_DISPLAY" ] && [ -n "$XDG_RUNTIME_DIR" ]; then
+    case "$WAYLAND_DISPLAY" in
+        /*) wd="$WAYLAND_DISPLAY" ;;
+        *)  wd="$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ;;
+    esac
+    set -- "--wayland-display=$wd" "$@"
+fi
+[ -n "$DISPLAY" ] && set -- "--display=$DISPLAY" "$@"
+[ -n "$GDK_SCALE" ] && set -- "--scale=$GDK_SCALE" "$@"
+
+if python3 -c "import gi; gi.require_version('Gtk','4.0'); gi.require_version('Adw','1'); from gi.repository import Adw" 2>/dev/null; then
+    gui=/usr/lib/netshift/netshift-gtk.py
+else
+    gui=/usr/lib/netshift/netshift-gui.py
+    echo "Hinweis: Für die moderne Oberfläche installieren: sudo pacman -S python-gobject gtk4 libadwaita" >&2
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    exec "$gui" "$@"
+fi
+# Rückfall auf X11/XWayland: root den Zugriff auf das Display erlauben
+command -v xhost >/dev/null 2>&1 && xhost +si:localuser:root >/dev/null 2>&1
+pkexec "$gui" "$@"
+rc=$?
+command -v xhost >/dev/null 2>&1 && xhost -si:localuser:root >/dev/null 2>&1
+exit $rc

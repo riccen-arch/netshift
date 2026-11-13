@@ -1,0 +1,14 @@
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = netshift: Snapshot vor Paketänderung (falls aktiviert)…
+Depends = rsync
+When = PreTransaction
+Exec = /usr/bin/netshift pacman-hook
+NeedsTargets
+AbortOnFail

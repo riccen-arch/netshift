@@ -1,0 +1,25 @@
+# Maintainer: riccen-arch
+# PKGBUILD für das AUR – lädt die getaggte Version von GitHub.
+pkgname=netshift
+pkgver=1.1.4
+pkgrel=1
+pkgdesc="System-Snapshots wie Timeshift (rsync) – auch auf SMB-, NFS- und SSH-Netzwerkziele"
+arch=('any')
+url="https://github.com/riccen-arch/netshift"
+license=('GPL-3.0-or-later')
+depends=('python' 'rsync' 'e2fsprogs' 'util-linux' 'polkit' 'cifs-utils' 'cryptsetup')
+optdepends=('python-gobject: moderne Oberfläche'
+            'gtk4: moderne Oberfläche'
+            'libadwaita: moderne Oberfläche'
+            'tk: klassische Oberfläche als Rückfall'
+            'nfs-utils: NFS-Freigaben'
+            'openssh: SSH-Ziele'
+            'arch-install-scripts: GRUB-Aktualisierung nach Restore auf anderes Laufwerk'
+            'xorg-xhost: Oberfläche unter Wayland')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')   # vor dem Hochladen ins AUR: updpkgsums
+
+package() {
+    cd "$pkgname-$pkgver"
+    DESTDIR="$pkgdir" sh tools/install-files.sh
+}
