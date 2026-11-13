@@ -1,29 +1,33 @@
 #!/bin/sh
 # ============================================================================
-#  netshift – Installer (Manjaro / Arch Linux)
+#  netshift – installer (Manjaro / Arch Linux)
 #
-#  Aus dem Git-Ordner:             sudo sh install.sh
-#  Als Einzeldatei (Release):      sudo sh netshift-install.sh
-#  Ohne Rückfragen:                … --yes
-#  Nur prüfen, nichts ändern:      … --check
-#  Entfernen:                      … --uninstall
+#  From the git folder:            sudo sh install.sh
+#  As a single file (release):     sudo sh netshift-install.sh
+#  Without questions:              … --yes
+#  Only check, change nothing:     … --check
+#  Uninstall:                      … --uninstall
 #
-#  Benötigt kein makepkg/base-devel. Installiert nur Pakete, die fehlen.
-#  Konfiguration und Sicherungen (/etc/netshift, NAS) werden nie angefasst.
+#  Needs no makepkg/base-devel. Installs only packages that are missing.
+#  Configuration and backups (/etc/netshift, NAS) are never touched.
 # ============================================================================
+# Sprache: Deutsch, wenn das System auf Deutsch eingestellt ist, sonst Englisch
+case "${LANGUAGE:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in de*) DE=1 ;; *) DE=0 ;; esac
+L() { if [ "$DE" = 1 ]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+
 # Programmdateien: eingebettet (Einzeldatei) oder direkt aus dem Git-Ordner
 SELF_DIR=$(cd "$(dirname "$0")" && pwd)
 LINE=$(awk '/^__NETSHIFT_PAYLOAD__$/ {print NR + 1; exit}' "$0")
 if [ -n "$LINE" ] && [ -n "$(tail -n +"$LINE" "$0" | head -c 1)" ]; then
-    TMP=$(mktemp -d) || { echo "FEHLER: Kein temporäres Verzeichnis"; exit 1; }
+    TMP=$(mktemp -d) || { echo "$(L "FEHLER: Kein temporäres Verzeichnis" "ERROR: no temporary directory")"; exit 1; }
     trap 'rm -rf "$TMP"' EXIT
     tail -n +"$LINE" "$0" | base64 -d | tar xz -C "$TMP" \
-        || { echo "FEHLER: Installer-Datei ist beschädigt – bitte neu herunterladen."; exit 1; }
+        || { echo "$(L "FEHLER: Installer-Datei ist beschädigt – bitte neu herunterladen." "ERROR: installer file is damaged – please download it again.")"; exit 1; }
     S="$TMP/netshift"
 else
     S="$SELF_DIR"
 fi
-[ -f "$S/tools/install-files.sh" ] || { echo "FEHLER: Programmdateien nicht gefunden ($S)."; exit 1; }
+[ -f "$S/tools/install-files.sh" ] || { echo "$(L "FEHLER: Programmdateien nicht gefunden" "ERROR: program files not found") ($S)."; exit 1; }
 VERSION=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' "$S/netshift.py")
 ROOT="${NETSHIFT_INSTALL_ROOT:-}"          # nur für Tests
 LOG=/tmp/netshift-install.log
@@ -35,7 +39,7 @@ for a in "$@"; do
         --uninstall) UNINSTALL=1 ;;
         --classic) CLASSIC=1 ;;
         -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
-        *) echo "Unbekannte Option: $a"; exit 1 ;;
+        *) echo "$(L "Unbekannte Option" "Unknown option"): $a"; exit 1 ;;
     esac
 done
 
@@ -43,38 +47,38 @@ if [ -t 1 ]; then B="\033[1m"; G="\033[32m"; Y="\033[33m"; R="\033[31m"; N="\033
 step() { printf "\n${B}==> %s${N}\n" "$1"; }
 ok()   { printf "  ${G}✔${N} %s\n" "$1"; }
 warn() { printf "  ${Y}!${N} %s\n" "$1"; }
-fail() { printf "\n${R}${B}FEHLER:${N} %s\n" "$1"; exit 1; }
+fail() { printf "\n${R}${B}%s${N} %s\n" "$(L FEHLER: ERROR:)" "$1"; exit 1; }
 ask()  {   # ask "Frage" -> 0 = ja
     [ "$YES" = 1 ] && return 0
     [ -t 0 ] || return 0
-    printf "  %s [J/n] " "$1"; read -r a
+    printf "  %s %s " "$1" "$(L "[J/n]" "[Y/n]")"; read -r a
     case "$a" in n|N|nein|Nein) return 1 ;; *) return 0 ;; esac
 }
 
-[ "$(id -u)" -eq 0 ] || fail "Bitte mit sudo starten:  sudo sh $0"
+[ "$(id -u)" -eq 0 ] || fail "$(L "Bitte mit sudo starten" "Please run with sudo"):  sudo sh $0"
 
 printf "${B}netshift %s – Installation${N}\n" "$VERSION"
 : > "$LOG"
 
 # --------------------------------------------------------------------------- Entfernen
 if [ "$UNINSTALL" = 1 ]; then
-    step "Entferne netshift"
+    step "$(L "Entferne netshift" "Removing netshift")"
     command -v systemctl >/dev/null && systemctl disable --now netshift-check.timer netshift-boot.timer netshift-shutdown.service >/dev/null 2>&1
     if pacman -Qq netshift >/dev/null 2>&1; then
-        pacman -R --noconfirm netshift >>"$LOG" 2>&1 && ok "Paket netshift entfernt"
+        pacman -R --noconfirm netshift >>"$LOG" 2>&1 && ok "$(L "Paket netshift entfernt" "Package netshift removed")"
     fi
-    rm -rf "$ROOT/usr/lib/netshift" "$ROOT/usr/share/doc/netshift" "$ROOT/usr/share/licenses/netshift"
+    rm -rf "$ROOT/usr/lib/netshift" "$ROOT/usr/share/doc/netshift" "$ROOT/usr/share/licenses/netshift" "$ROOT/usr/share/netshift"
     rm -f "$ROOT/usr/bin/netshift" "$ROOT/usr/bin/netshift-gui" \
           "$ROOT"/usr/lib/systemd/system/netshift-* \
           "$ROOT/usr/share/libalpm/hooks/00-netshift.hook" \
           "$ROOT/usr/share/polkit-1/actions/org.netshift.gui.policy" \
           "$ROOT/usr/share/applications/netshift.desktop"
     command -v systemctl >/dev/null && systemctl daemon-reload >/dev/null 2>&1
-    ok "netshift entfernt (Einstellungen in /etc/netshift und die Sicherungen bleiben erhalten)"
+    ok "$(L "netshift entfernt (Einstellungen in /etc/netshift und die Sicherungen bleiben erhalten)" "netshift removed (settings in /etc/netshift and the backups are kept)")"
     exit 0
 fi
 
-command -v pacman >/dev/null || fail "Dieser Installer ist für Manjaro/Arch Linux (pacman nicht gefunden)."
+command -v pacman >/dev/null || fail "$(L "Dieser Installer ist für Manjaro/Arch Linux (pacman nicht gefunden)." "This installer is for Manjaro/Arch Linux (pacman not found).")"
 
 # --------------------------------------------------------------------------- Prüfen
 have()   { command -v "$1" >/dev/null 2>&1; }
@@ -92,44 +96,50 @@ check_core() {
     have pkexec     || CORE_MISSING="$CORE_MISSING polkit"
 }
 
-step "Prüfe, was bereits vorhanden ist"
+step "$(L "Prüfe, was bereits vorhanden ist" "Checking what is already installed")"
 check_core
 for p in python3:python rsync:rsync mkfs.ext4:e2fsprogs findmnt:util-linux mount.cifs:cifs-utils pkexec:polkit; do
     c=${p%%:*}; n=${p##*:}
-    if have "$c"; then ok "$n"; else warn "$n fehlt"; fi
+    if have "$c"; then ok "$n"; else warn "$n $(L fehlt missing)"; fi
 done
 GUI=none
-if [ "$CLASSIC" = 0 ] && gtk_ok; then GUI=gtk; ok "Moderne Oberfläche (GTK4/libadwaita)"
-elif tk_ok; then GUI=tk; ok "Klassische Oberfläche (Tk)"
+if [ "$CLASSIC" = 0 ] && gtk_ok; then GUI=gtk; ok "$(L "Moderne Oberfläche" "Modern interface") (GTK4/libadwaita)"
+elif tk_ok; then GUI=tk; ok "$(L "Klassische Oberfläche" "Classic interface") (Tk)"
 fi
-[ "$GUI" = none ] && warn "Keine Oberfläche nutzbar – wird nachinstalliert"
+[ "$GUI" = none ] && warn "$(L "Keine Oberfläche nutzbar – wird nachinstalliert" "No usable interface – will be installed")"
 
 if [ "$CHECK" = 1 ]; then
-    printf "\nNur Prüfung (--check) – nichts verändert.\n"; exit 0
+    printf "\n%s\n" "$(L "Nur Prüfung (--check) – nichts verändert." "Check only (--check) – nothing changed.")"; exit 0
 fi
 
 # --------------------------------------------------------------------------- Pakete
 DB_FIXED=0
 repair_db() {
     [ "$DB_FIXED" = 1 ] && return 0
-    printf "\n  ${Y}Die Pakete konnten nicht geladen werden.${N} Meist ist die Paketliste dieses Systems\n"
-    printf "  veraltet (typisch bei einem selten benutzten USB-Stick). Abhilfe: Spiegelserver und\n"
-    printf "  Schlüssel auffrischen und das System aktualisieren (pacman -Syu).\n"
-    ask "Jetzt aktualisieren? Das kann je nach Alter des Systems einige Minuten dauern." || return 1
-    if have pacman-mirrors; then
-        echo "  Suche schnelle Spiegelserver…"
-        pacman-mirrors --fasttrack 5 >>"$LOG" 2>&1 || warn "Spiegelserver-Suche fehlgeschlagen (weiter)"
+    if [ "$DE" = 1 ]; then
+        printf "\n  ${Y}Die Pakete konnten nicht geladen werden.${N} Meist ist die Paketliste dieses Systems\n"
+        printf "  veraltet (typisch bei einem selten benutzten USB-Stick). Abhilfe: Spiegelserver und\n"
+        printf "  Schlüssel auffrischen und das System aktualisieren (pacman -Syu).\n"
+    else
+        printf "\n  ${Y}The packages could not be downloaded.${N} Usually the package list of this system is\n"
+        printf "  outdated (typical for a rarely used USB stick). Fix: refresh mirrors and keys and\n"
+        printf "  update the system (pacman -Syu).\n"
     fi
-    echo "  Aktualisiere Schlüssel…"
+    ask "$(L "Jetzt aktualisieren? Das kann je nach Alter des Systems einige Minuten dauern." "Update now? Depending on the age of the system this may take a few minutes.")" || return 1
+    if have pacman-mirrors; then
+        echo "  $(L "Suche schnelle Spiegelserver…" "Looking for fast mirrors…")"
+        pacman-mirrors --fasttrack 5 >>"$LOG" 2>&1 || warn "$(L "Spiegelserver-Suche fehlgeschlagen (weiter)" "Mirror search failed (continuing)")"
+    fi
+    echo "  $(L "Aktualisiere Schlüssel…" "Updating keys…")"
     keyrings="archlinux-keyring"
     pacman -Si manjaro-keyring >/dev/null 2>&1 && keyrings="$keyrings manjaro-keyring"
     pacman -Sy --needed --noconfirm $keyrings >>"$LOG" 2>&1 || {
-        warn "Schlüssel-Aktualisierung fehlgeschlagen – setze Schlüsselbund neu auf"
+        warn "$(L "Schlüssel-Aktualisierung fehlgeschlagen – setze Schlüsselbund neu auf" "Key update failed – re-initialising the keyring")"
         pacman-key --init >>"$LOG" 2>&1
         pacman-key --populate >>"$LOG" 2>&1
         pacman -Sy --needed --noconfirm $keyrings >>"$LOG" 2>&1
     }
-    echo "  Aktualisiere das System…"
+    echo "  $(L "Aktualisiere das System…" "Updating the system…")"
     if [ "$YES" = 1 ] || ! [ -t 0 ]; then
         pacman -Syu --noconfirm 2>&1 | tee -a "$LOG" | grep -E '^(::|error|Fehler|warning)'
     else
@@ -140,46 +150,45 @@ repair_db() {
 
 install_pkgs() {   # install_pkgs "pakete" -> 0 bei Erfolg
     [ -z "$1" ] && return 0
-    echo "  Installiere: $(echo $1)"
+    echo "  $(L Installiere Installing): $(echo $1)"
     pacman -S --needed --noconfirm $1 >>"$LOG" 2>&1 && return 0
     repair_db || return 1
     pacman -S --needed --noconfirm $1 >>"$LOG" 2>&1
 }
 
 if [ -n "$CORE_MISSING" ]; then
-    step "Installiere fehlende Pakete"
+    step "$(L "Installiere fehlende Pakete" "Installing missing packages")"
     install_pkgs "$CORE_MISSING" || {
         tail -n 15 "$LOG"
-        fail "Die benötigten Pakete ($CORE_MISSING ) konnten nicht installiert werden.
-       Bitte die Internetverbindung prüfen. Das vollständige Protokoll liegt in $LOG –
-       schick mir gern die letzten Zeilen daraus."
+        fail "$(L "Die benötigten Pakete konnten nicht installiert werden" "The required packages could not be installed"):$CORE_MISSING
+       $(L "Bitte die Internetverbindung prüfen. Das vollständige Protokoll liegt in" "Please check the internet connection. The full log is in") $LOG"
     }
     check_core
-    [ -n "$CORE_MISSING" ] && fail "Weiterhin fehlend:$CORE_MISSING (siehe $LOG)"
-    ok "Pakete installiert"
+    [ -n "$CORE_MISSING" ] && fail "$(L "Weiterhin fehlend" "Still missing"):$CORE_MISSING ($LOG)"
+    ok "$(L "Pakete installiert" "Packages installed")"
 fi
 
 if [ "$GUI" = none ] || { [ "$GUI" = tk ] && [ "$CLASSIC" = 0 ]; }; then
-    step "Grafische Oberfläche"
+    step "$(L "Grafische Oberfläche" "Graphical interface")"
     if [ "$CLASSIC" = 0 ] && install_pkgs "python-gobject gtk4 libadwaita" && gtk_ok; then
-        GUI=gtk; ok "Moderne Oberfläche installiert"
+        GUI=gtk; ok "$(L "Moderne Oberfläche installiert" "Modern interface installed")"
     elif [ "$GUI" = tk ]; then
-        warn "Moderne Oberfläche nicht verfügbar – die klassische Oberfläche wird verwendet"
+        warn "$(L "Moderne Oberfläche nicht verfügbar – die klassische Oberfläche wird verwendet" "Modern interface not available – the classic interface will be used")"
     elif install_pkgs "tk" && tk_ok; then
-        GUI=tk; ok "Klassische Oberfläche installiert"
+        GUI=tk; ok "$(L "Klassische Oberfläche installiert" "Classic interface installed")"
     else
-        warn "Keine Oberfläche installierbar – netshift ist im Terminal nutzbar (sudo netshift)"
+        warn "$(L "Keine Oberfläche installierbar – netshift ist im Terminal nutzbar" "No interface could be installed – netshift can be used in the terminal") (sudo netshift)"
     fi
 fi
 
 # --------------------------------------------------------------------------- Dateien
-step "Installiere netshift $VERSION"
+step "$(L "Installiere" "Installing") netshift $VERSION"
 
 if pacman -Qq netshift >/dev/null 2>&1; then
-    pacman -Rdd --noconfirm netshift >>"$LOG" 2>&1 && ok "Bisheriges netshift-Paket ersetzt (Einstellungen bleiben)"
+    pacman -Rdd --noconfirm netshift >>"$LOG" 2>&1 && ok "$(L "Bisheriges netshift-Paket ersetzt (Einstellungen bleiben)" "Previous netshift package replaced (settings are kept)")"
 fi
 
-DESTDIR="$ROOT" sh "$S/tools/install-files.sh" >>"$LOG" 2>&1 || fail "Kopieren der Dateien fehlgeschlagen (siehe $LOG)"
+DESTDIR="$ROOT" sh "$S/tools/install-files.sh" >>"$LOG" 2>&1 || fail "$(L "Kopieren der Dateien fehlgeschlagen" "Copying the files failed") ($LOG)"
 install -dm700 "$ROOT/etc/netshift"
 if command -v systemctl >/dev/null 2>&1 && [ -z "$ROOT" ]; then
     systemctl daemon-reload >/dev/null 2>&1
@@ -189,20 +198,20 @@ if command -v systemctl >/dev/null 2>&1 && [ -z "$ROOT" ]; then
     # Zeitplan gemäß vorhandener Konfiguration wieder aktivieren (bei Aktualisierung)
     [ -f /etc/netshift/config.json ] && /usr/bin/netshift schedule-apply >/dev/null 2>&1
 fi
-ok "Dateien installiert"
+ok "$(L "Dateien installiert" "Files installed")"
 
 # --------------------------------------------------------------------------- Fertig
 INSTALLED=$(python3 "$ROOT/usr/lib/netshift/netshift.py" --version 2>/dev/null)
-[ -n "$INSTALLED" ] || fail "netshift lässt sich nicht starten (siehe $LOG)"
-printf "\n${G}${B}Fertig:${N} %s ist installiert.\n" "$INSTALLED"
+[ -n "$INSTALLED" ] || fail "$(L "netshift lässt sich nicht starten" "netshift cannot be started") ($LOG)"
+printf "\n${G}${B}%s${N} %s %s\n" "$(L Fertig: Done:)" "$INSTALLED" "$(L "ist installiert." "is installed.")"
 case "$GUI" in
-    gtk|tk) printf "  Starten: im Startmenü ${B}netshift${N} öffnen – oder im Terminal: netshift-gui\n" ;;
-    *)      printf "  Starten im Terminal: ${B}sudo netshift setup${N}\n" ;;
+    gtk|tk) printf "  %s ${B}netshift${N} %s netshift-gui\n" "$(L "Starten: im Startmenü" "Start: open")" "$(L "öffnen – oder im Terminal:" "from the application menu – or in the terminal:")" ;;
+    *)      printf "  %s ${B}sudo netshift setup${N}\n" "$(L "Starten im Terminal:" "Start in the terminal:")" ;;
 esac
 if [ -f /etc/netshift/config.json ] && grep -q '"rescue_mode": true' /etc/netshift/config.json 2>/dev/null; then
-    printf "  Dieses System ist als ${B}Rettungssystem${N} eingerichtet (nur Wiederherstellung).\n"
+    printf "  %s\n" "$(L "Dieses System ist als Rettungssystem eingerichtet (nur Wiederherstellung)." "This system is set up as a rescue system (restore only).")"
 elif [ ! -f /etc/netshift/config.json ]; then
-    printf "  Für einen Rettungs-Stick: in den Einstellungen „Rettungssystem – nur wiederherstellen“ einschalten.\n"
+    printf "  %s\n" "$(L "Für einen Rettungs-Stick: in den Einstellungen „Rettungssystem – nur wiederherstellen“ einschalten." "For a rescue stick: enable “Rescue system – restore only” in the settings.")"
 fi
 exit 0
 __NETSHIFT_PAYLOAD__

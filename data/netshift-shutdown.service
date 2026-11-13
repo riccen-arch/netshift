@@ -1,5 +1,5 @@
 [Unit]
-Description=netshift: Sicherungsziel vor dem Herunterfahren sauber aushängen
+Description=netshift: cleanly unmount the backup target before shutdown
 # Durch "After=" wird dieser Dienst beim Herunterfahren VOR dem Netzwerk beendet –
 # so hängt nichts mehr an einer verschwundenen Netzwerkfreigabe.
 After=network-online.target remote-fs.target NetworkManager.service systemd-networkd.service

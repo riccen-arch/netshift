@@ -1,6 +1,6 @@
 #!/bin/sh
 # Startet die netshift-Oberfläche mit Root-Rechten (pkexec).
-# pkexec entfernt Umgebungsvariablen – Display und Farbschema werden als Argumente übergeben.
+# pkexec entfernt Umgebungsvariablen – Display, Farbschema und Sprache werden als Argumente übergeben.
 
 scheme=default
 if command -v gsettings >/dev/null 2>&1; then
@@ -16,6 +16,8 @@ if [ -f "$kg" ] && grep -qiE '^(ColorScheme|LookAndFeelPackage)=.*dark' "$kg"; t
     scheme=dark
 fi
 set -- "--color-scheme=$scheme" "$@"
+lang="${LANGUAGE:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}"
+[ -n "$lang" ] && set -- "--lang=$lang" "$@"
 if [ -n "$WAYLAND_DISPLAY" ] && [ -n "$XDG_RUNTIME_DIR" ]; then
     case "$WAYLAND_DISPLAY" in
         /*) wd="$WAYLAND_DISPLAY" ;;
@@ -30,7 +32,10 @@ if python3 -c "import gi; gi.require_version('Gtk','4.0'); gi.require_version('A
     gui=/usr/lib/netshift/netshift-gtk.py
 else
     gui=/usr/lib/netshift/netshift-gui.py
-    echo "Hinweis: Für die moderne Oberfläche installieren: sudo pacman -S python-gobject gtk4 libadwaita" >&2
+    case "$lang" in
+        de*) echo "Hinweis: Für die moderne Oberfläche installieren: sudo pacman -S python-gobject gtk4 libadwaita" >&2 ;;
+        *)   echo "Note: for the modern interface install: sudo pacman -S python-gobject gtk4 libadwaita" >&2 ;;
+    esac
 fi
 
 if [ "$(id -u)" -eq 0 ]; then

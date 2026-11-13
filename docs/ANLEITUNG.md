@@ -1,6 +1,6 @@
 # netshift – Anleitung
 
-[← Zurück zur Übersicht](../README.md)
+[← Zurück zur Übersicht](../README.de.md) · [🇬🇧 English](GUIDE.md)
 
 ## Was netshift kann
 
@@ -183,5 +183,8 @@ netshift resize-image 400                Image-Container vergrößern
   eingestellte Anzahl pro Stufe (ein Snapshot kann mehrere Stufen tragen, wie bei Timeshift).
 - Der erste Snapshot überträgt das ganze System (typisch 10–30 GB), danach nur Änderungen.
 - Probleme mit SMB? *Zusätzliche Mount-Optionen* z.B. `vers=2.1` oder `sec=ntlmssp` probieren.
+- Sprache: richtet sich nach der Systemsprache (Deutsch, sonst Englisch). Erzwingen z.B. mit
+  `sudo NETSHIFT_LANG=en netshift list`. Weitere Sprachen: `python3 tools/update-po.py fr` legt
+  `po/fr.po` an.
 - Ausführliche Ausgabe: `sudo NETSHIFT_DEBUG=1 netshift create`
 - Protokoll geplanter Läufe: `journalctl -u netshift-check -u netshift-boot`

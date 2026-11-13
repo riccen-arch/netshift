@@ -19,6 +19,8 @@ for _a in sys.argv[1:]:
         os.environ["GDK_SCALE"] = _a.split("=", 1)[1]
     elif _a.startswith("--color-scheme="):
         COLOR_SCHEME = _a.split("=", 1)[1]
+    elif _a.startswith("--lang="):
+        os.environ["NETSHIFT_LANG"] = _a.split("=", 1)[1]
     else:
         _rest.append(_a)
 sys.argv[1:] = _rest
@@ -49,28 +51,35 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 CORE = next((p for p in (os.path.join(HERE, "netshift.py"), "/usr/lib/netshift/netshift.py")
              if os.path.exists(p)), None)
 if CORE is None:
-    sys.exit("netshift.py nicht gefunden")
+    sys.exit("netshift.py not found")
 _spec = importlib.util.spec_from_file_location("netshift_core", CORE)
 ns = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ns)
+_ = ns._
+
+
+def fmt_int(n):
+    s = f"{int(n):,}"
+    return s.replace(",", ".") if ns.LANG == "de" else s
 
 APP_ID = "org.netshift.Netshift"
-TYPES = [("smb", "SMB / NAS"), ("nfs", "NFS"), ("ssh", "SSH-Server"), ("local", "Lokales Laufwerk")]
-CONTAINERS = [("auto", "Automatisch (empfohlen)"), ("image", "Image-Container (ext4)"),
-              ("direct", "Direkt im Dateisystem")]
+TYPES = [("smb", "SMB / NAS"), ("nfs", "NFS"), ("ssh", _('SSH-Server')), ("local", _('Lokales Laufwerk'))]
+CONTAINERS = [("auto", _('Automatisch (empfohlen)')), ("image", _('Image-Container (ext4)')),
+              ("direct", _('Direkt im Dateisystem'))]
 SMB_VERSIONS = ["3.1.1", "3.0", "2.1", "2.0", "1.0"]
-LEVELS = [("boot", "Beim Systemstart", "system-reboot-symbolic"),
-          ("hourly", "Stündlich", "alarm-symbolic"),
-          ("daily", "Täglich", "x-office-calendar-symbolic"),
-          ("weekly", "Wöchentlich", "x-office-calendar-symbolic"),
-          ("monthly", "Monatlich", "x-office-calendar-symbolic")]
-TAG_STYLE = {"O": ("Manuell", "accent"), "B": ("Boot", "success"), "H": ("Stündlich", "success"),
-             "D": ("Täglich", "success"), "W": ("Wöchentlich", "success"), "M": ("Monatlich", "success"),
-             "P": ("Update", "warning"), "R": ("Vor Restore", "neutral")}
+LEVELS = [("boot", _('Beim Systemstart'), "system-reboot-symbolic"),
+          ("hourly", _('Stündlich'), "alarm-symbolic"),
+          ("daily", _('Täglich'), "x-office-calendar-symbolic"),
+          ("weekly", _('Wöchentlich'), "x-office-calendar-symbolic"),
+          ("monthly", _('Monatlich'), "x-office-calendar-symbolic")]
+TAG_STYLE = {"O": (_('Manuell'), "accent"), "B": (_('Boot'), "success"), "H": (_('Stündlich'), "success"),
+             "D": (_('Täglich'), "success"), "W": (_('Wöchentlich'), "success"), "M": (_('Monatlich'), "success"),
+             "P": (_('Update'), "warning"), "R": (_('Vor Restore'), "neutral")}
 TAG_ICON = {"O": "camera-photo-symbolic", "P": "system-software-install-symbolic",
             "R": "edit-undo-symbolic", "B": "system-reboot-symbolic"}
-WD = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]
-MON = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]
+WD = [_("Mo."), _("Di."), _("Mi."), _("Do."), _("Fr."), _("Sa."), _("So.")]
+MON = [_("Jan."), _("Feb."), _("März"), _("Apr."), _("Mai"), _("Juni"), _("Juli"), _("Aug."), _("Sept."),
+       _("Okt."), _("Nov."), _("Dez.")]
 
 CSS = """
 .pill { padding: 1px 9px; border-radius: 999px; font-size: 0.82em; font-weight: 600; }
@@ -108,10 +117,10 @@ def fmt_when(epoch, with_time=True):
     today = dt.date.today()
     t = d.strftime("%H:%M")
     if d.date() == today:
-        return f"Heute, {t}" if with_time else "Heute"
+        return _('Heute, {t}').format(t=t) if with_time else _('Heute')
     if d.date() == today - dt.timedelta(days=1):
-        return f"Gestern, {t}" if with_time else "Gestern"
-    s = f"{WD[d.weekday()]} {d.day}. {MON[d.month - 1]}"
+        return _('Gestern, {t}').format(t=t) if with_time else _('Gestern')
+    s = _("{wd} {day}. {mon}").format(wd=WD[d.weekday()], day=d.day, mon=MON[d.month - 1])
     if d.year != today.year:
         s += f" {d.year}"
     return f"{s} · {t}" if with_time else s
@@ -120,30 +129,30 @@ def fmt_when(epoch, with_time=True):
 def fmt_ago(epoch):
     s = int(dt.datetime.now().timestamp() - epoch)
     if s < 90:
-        return "gerade eben"
+        return _('gerade eben')
     if s < 3600:
-        return f"vor {s // 60} Minuten"
+        return _('vor {0} Minuten').format(s // 60)
     if s < 2 * 3600:
-        return "vor einer Stunde"
+        return _('vor einer Stunde')
     if s < 86400:
-        return f"vor {s // 3600} Stunden"
+        return _('vor {0} Stunden').format(s // 3600)
     if s < 2 * 86400:
-        return "gestern"
-    return f"vor {s // 86400} Tagen"
+        return _("gestern")
+    return _('vor {0} Tagen').format(s // 86400)
 
 
 def period_of(epoch):
     d = dt.datetime.fromtimestamp(epoch).date()
     days = (dt.date.today() - d).days
     if days <= 0:
-        return 0, "Heute"
+        return 0, _('Heute')
     if days == 1:
-        return 1, "Gestern"
+        return 1, _('Gestern')
     if days < 7:
-        return 2, "Letzte 7 Tage"
+        return 2, _('Letzte 7 Tage')
     if days < 31:
-        return 3, "Letzte 30 Tage"
-    return 4, "Älter"
+        return 3, _('Letzte 30 Tage')
+    return 4, _('Älter')
 
 
 def lsblk_parts():
@@ -173,14 +182,14 @@ def lsblk_parts():
 
 def dev_subtitle(d):
     if d.get("locked"):
-        return f"verschlüsselt · {d.get('size') or ''} · zum Entsperren anklicken"
+        return _('verschlüsselt · {0} · zum Entsperren anklicken').format(d.get('size') or '')
     parts = [d.get("fstype") or "", d.get("size") or ""]
     if d.get("unlocked_from"):
-        parts.append(f"entsperrt von {d['unlocked_from']}")
+        parts.append(_('entsperrt von {0}').format(d['unlocked_from']))
     if d.get("label"):
         parts.append(d["label"])
     if d.get("mountpoint"):
-        parts.append("eingehängt: " + d["mountpoint"])
+        parts.append(_('eingehängt: ') + d["mountpoint"])
     return " · ".join(p for p in parts if p)
 
 
@@ -241,7 +250,7 @@ def icon_button(icon, tooltip, cb, *css):
     b = Gtk.Button(icon_name=icon, tooltip_text=tooltip, valign=Gtk.Align.CENTER)
     for c in css or ("flat",):
         b.add_css_class(c)
-    b.connect("clicked", lambda *_: cb())
+    b.connect("clicked", lambda *_x: cb())
     return b
 
 
@@ -280,8 +289,15 @@ class Job:
 
     @staticmethod
     def error_of(lines):
-        err = [l.replace("FEHLER: ", "", 1).strip() for l in lines if l.startswith("FEHLER")]
-        return "\n".join(err) or (lines[-1].strip() if lines else "Unbekannter Fehler")
+        err = [l[len("@@ERROR "):].rstrip("\n") for l in lines if l.startswith("@@ERROR ")]
+        if err:
+            return "\n".join(err).strip()
+        plain = [l.strip() for l in lines if l.strip() and not l.startswith("@@")]
+        return plain[-1] if plain else _('Unbekannter Fehler')
+
+    @staticmethod
+    def result_of(lines):
+        return next((l[len("@@RESULT "):].strip() for l in lines if l.startswith("@@RESULT ")), "")
 
 
 # --------------------------------------------------------------------------- Fortschritt
@@ -310,12 +326,12 @@ class OperationPanel(Gtk.Revealer):
         tb.append(self.title)
         tb.append(self.sub)
         top.append(tb)
-        self.btn_details = Gtk.ToggleButton(label="Details", valign=Gtk.Align.CENTER, css_classes=["flat"])
-        self.btn_cancel = Gtk.Button(label="Abbrechen", valign=Gtk.Align.CENTER)
+        self.btn_details = Gtk.ToggleButton(label=_('Details'), valign=Gtk.Align.CENTER, css_classes=["flat"])
+        self.btn_cancel = Gtk.Button(label=_('Abbrechen'), valign=Gtk.Align.CENTER)
         self.btn_close = Gtk.Button(icon_name="window-close-symbolic", valign=Gtk.Align.CENTER,
                                     css_classes=["flat", "circular"], visible=False)
         self.btn_cancel.connect("clicked", self._cancel)
-        self.btn_close.connect("clicked", lambda *_: self.set_reveal_child(False))
+        self.btn_close.connect("clicked", lambda *_x: self.set_reveal_child(False))
         for b in (self.btn_details, self.btn_cancel, self.btn_close):
             top.append(b)
         box.append(top)
@@ -359,7 +375,7 @@ class OperationPanel(Gtk.Revealer):
     def start(self, title, args, on_done=None, cancellable=True):
         self.log.get_buffer().set_text("")
         self.title.set_label(title)
-        self.sub.set_label("Verbinde mit dem Sicherungsziel…")
+        self.sub.set_label(_('Verbinde mit dem Sicherungsziel…'))
         self.icon_stack.set_visible_child_name("busy")
         self.spinner.start()
         self.btn_cancel.set_visible(cancellable)
@@ -386,14 +402,21 @@ class OperationPanel(Gtk.Revealer):
             self._stop_pulse()
             self._set_fraction(pct / 100)
             if pct >= 100:
-                self.sub.set_label("Wird abgeschlossen…")
+                self.sub.set_label(_('Wird abgeschlossen…'))
             else:
                 self.sub.set_label(f"{pct} %  ·  {p[2]}  ·  noch {p[3]}")
+        elif line.startswith("@@STEP "):
+            msg = line[7:].strip()
+            self.append_log(msg)
+            self.sub.set_label(msg[:120])
+        elif line.startswith("@@ERROR "):
+            self.append_log("✖ " + line[8:].rstrip())
+        elif line.startswith("@@WARN "):
+            self.append_log("⚠ " + line[7:].rstrip())
+        elif line.startswith("@@RESULT "):
+            self.append_log(line[9:].rstrip())
         else:
             self.append_log(line)
-            low = line.strip()
-            if low.startswith(("Erstelle", "Stelle", "Sicherheits", "Lösche", "Erstelle Image")):
-                self.sub.set_label(low[:120])
 
     def _done(self, rc, lines):
         self._stop_pulse()
@@ -404,20 +427,20 @@ class OperationPanel(Gtk.Revealer):
         self.icon_stack.set_visible_child_name("ok" if ok else "error")
         if ok:
             self._set_fraction(1.0)
-            self.sub.set_label("Abgeschlossen")
+            self.sub.set_label(_('Abgeschlossen'))
             GLib.timeout_add(1800, lambda: (self.set_reveal_child(False), False)[1])
         else:
-            self.sub.set_label(Job.error_of(lines).splitlines()[0] if rc != 130 else "Abgebrochen")
+            self.sub.set_label(Job.error_of(lines).splitlines()[0] if rc != 130 else _('Abgebrochen'))
             self.btn_close.set_visible(True)
             if rc != 130:
                 self.btn_details.set_active(True)
         if self._done_cb:
             self._done_cb(rc, lines)
 
-    def _cancel(self, *_):
+    def _cancel(self, *_x):
         if self.job:
             self.btn_cancel.set_sensitive(False)
-            self.sub.set_label("Wird abgebrochen…")
+            self.sub.set_label(_('Wird abgebrochen…'))
             self.job.cancel()
 
 
@@ -441,22 +464,22 @@ class MainWindow(Adw.ApplicationWindow):
         self.toasts = Adw.ToastOverlay()
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
-        self.wtitle = Adw.WindowTitle(title="netshift", subtitle="System-Snapshots")
+        self.wtitle = Adw.WindowTitle(title="netshift", subtitle=_('System-Snapshots'))
         hb.set_title_widget(self.wtitle)
-        self.btn_create = Gtk.Button(child=Adw.ButtonContent(icon_name="list-add-symbolic", label="Snapshot erstellen"),
+        self.btn_create = Gtk.Button(child=Adw.ButtonContent(icon_name="list-add-symbolic", label=_('Snapshot erstellen')),
                                      css_classes=["suggested-action"], action_name="win.create",
-                                     tooltip_text="Neuen Snapshot erstellen (Strg+N)")
+                                     tooltip_text=_('Neuen Snapshot erstellen (Strg+N)'))
         hb.pack_start(self.btn_create)
         menu = Gio.Menu()
-        menu.append("Einstellungen", "win.settings")
-        menu.append("Aktualisieren", "win.refresh")
+        menu.append(_('Einstellungen'), "win.settings")
+        menu.append(_('Aktualisieren'), "win.refresh")
         sec = Gio.Menu()
-        sec.append("Über netshift", "win.about")
+        sec.append(_('Über netshift'), "win.about")
         menu.append_section(None, sec)
-        hb.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu, tooltip_text="Hauptmenü"))
+        hb.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu, tooltip_text=_('Hauptmenü')))
         self.refresh_stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         self.refresh_stack.add_named(Gtk.Button(icon_name="view-refresh-symbolic", action_name="win.refresh",
-                                                tooltip_text="Aktualisieren (F5)"), "btn")
+                                                tooltip_text=_('Aktualisieren (F5)')), "btn")
         self.refresh_stack.add_named(Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER), "spin")
         hb.pack_end(self.refresh_stack)
         tv.add_top_bar(hb)
@@ -465,21 +488,20 @@ class MainWindow(Adw.ApplicationWindow):
         # Laden
         lb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, valign=Gtk.Align.CENTER)
         lb.append(Gtk.Spinner(spinning=True, width_request=32, height_request=32))
-        lb.append(Gtk.Label(label="Verbinde mit dem Sicherungsziel…", css_classes=["dim-label"]))
+        lb.append(Gtk.Label(label=_('Verbinde mit dem Sicherungsziel…'), css_classes=["dim-label"]))
         self.stack.add_named(lb, "loading")
         # Willkommen
-        sp = Adw.StatusPage(icon_name="folder-remote-symbolic", title="Willkommen bei netshift",
-                            description="Sichere dein System auf ein NAS, einen Server oder ein USB-Laufwerk "
-                                        "und stelle es mit wenigen Klicks wieder her.")
-        sp.set_child(Gtk.Button(label="Sicherungsziel einrichten", halign=Gtk.Align.CENTER,
+        sp = Adw.StatusPage(icon_name="folder-remote-symbolic", title=_('Willkommen bei netshift'),
+                            description=_('Sichere dein System auf ein NAS, einen Server oder ein USB-Laufwerk und stelle es mit wenigen Klicks wieder her.'))
+        sp.set_child(Gtk.Button(label=_('Sicherungsziel einrichten'), halign=Gtk.Align.CENTER,
                                 css_classes=["pill", "suggested-action"], action_name="win.settings"))
         self.stack.add_named(sp, "welcome")
         # Fehler
-        self.err_page = Adw.StatusPage(icon_name="network-offline-symbolic", title="Ziel nicht erreichbar")
+        self.err_page = Adw.StatusPage(icon_name="network-offline-symbolic", title=_('Ziel nicht erreichbar'))
         eb = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
-        eb.append(Gtk.Button(label="Erneut versuchen", css_classes=["pill", "suggested-action"],
+        eb.append(Gtk.Button(label=_('Erneut versuchen'), css_classes=["pill", "suggested-action"],
                              action_name="win.refresh"))
-        eb.append(Gtk.Button(label="Einstellungen", css_classes=["pill"], action_name="win.settings"))
+        eb.append(Gtk.Button(label=_('Einstellungen'), css_classes=["pill"], action_name="win.settings"))
         self.err_page.set_child(eb)
         self.stack.add_named(self.err_page, "error")
         # Liste
@@ -528,7 +550,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def run_op(self, title, args, on_done=None, cancellable=True):
         if self.busy():
-            self.toast("Es läuft bereits ein Vorgang")
+            self.toast(_('Es läuft bereits ein Vorgang'))
             return
         self.set_actions_enabled(False)
 
@@ -545,7 +567,7 @@ class MainWindow(Adw.ApplicationWindow):
             return
         if not os.path.exists(ns.CONFIG_PATH):
             self.stack.set_visible_child_name("welcome")
-            self.wtitle.set_subtitle("Noch nicht eingerichtet")
+            self.wtitle.set_subtitle(_('Noch nicht eingerichtet'))
             return
         cfg = ns.load_config()
         self.wtitle.set_subtitle(ns.Target(cfg).describe())
@@ -577,7 +599,7 @@ class MainWindow(Adw.ApplicationWindow):
         rescue = bool(cfg.get("rescue_mode"))
         self.btn_create.set_visible(not rescue)
         self.lookup_action("create").set_enabled(not rescue)
-        self.wtitle.set_title("netshift – Rettungssystem" if rescue else "netshift")
+        self.wtitle.set_title(_('netshift – Rettungssystem') if rescue else "netshift")
         child = self.list_box.get_first_child()
         while child:
             nxt = child.get_next_sibling()
@@ -587,13 +609,12 @@ class MainWindow(Adw.ApplicationWindow):
             self.list_box.append(self._problem_card(pr, cfg))
         self.list_box.append(self._hero(cfg))
         if not self.snaps and rescue:
-            self.list_box.append(Adw.StatusPage(icon_name="camera-photo-symbolic", title="Keine Snapshots gefunden",
-                                                description="In dieser Sicherung liegen keine Snapshots."))
+            self.list_box.append(Adw.StatusPage(icon_name="camera-photo-symbolic", title=_('Keine Snapshots gefunden'),
+                                                description=_('In dieser Sicherung liegen keine Snapshots.')))
         elif not self.snaps:
-            sp = Adw.StatusPage(icon_name="camera-photo-symbolic", title="Noch keine Snapshots",
-                                description="Erstelle jetzt den ersten Snapshot. Er überträgt das komplette "
-                                            "System – das dauert einmalig etwas länger, danach nur noch Änderungen.")
-            sp.set_child(Gtk.Button(label="Ersten Snapshot erstellen", halign=Gtk.Align.CENTER,
+            sp = Adw.StatusPage(icon_name="camera-photo-symbolic", title=_('Noch keine Snapshots'),
+                                description=_('Erstelle jetzt den ersten Snapshot. Er überträgt das komplette System – das dauert einmalig etwas länger, danach nur noch Änderungen.'))
+            sp.set_child(Gtk.Button(label=_('Ersten Snapshot erstellen'), halign=Gtk.Align.CENTER,
                                     css_classes=["pill", "suggested-action"], action_name="win.create"))
             self.list_box.append(sp)
         groups = {}
@@ -618,16 +639,16 @@ class MainWindow(Adw.ApplicationWindow):
         card.append(txt)
         image = (self.listing or {}).get("mode") == "image"
         if pr["kind"] == "space" and image:
-            b = Gtk.Button(label="Vergrößern…", valign=Gtk.Align.CENTER, css_classes=["pill"])
-            b.connect("clicked", lambda *_: self.resize_image())
+            b = Gtk.Button(label=_('Vergrößern…'), valign=Gtk.Align.CENTER, css_classes=["pill"])
+            b.connect("clicked", lambda *_x: self.resize_image())
             card.append(b)
         if pr["kind"] in ("overdue", "error") and not cfg.get("rescue_mode"):
-            card.append(Gtk.Button(label="Jetzt sichern", valign=Gtk.Align.CENTER,
+            card.append(Gtk.Button(label=_('Jetzt sichern'), valign=Gtk.Align.CENTER,
                                    css_classes=["pill", "suggested-action"], action_name="win.create"))
         if pr["kind"] == "error" and len(pr["body"]) > 90:
             b = Gtk.Button(icon_name="view-more-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"],
-                           tooltip_text="Vollständige Meldung")
-            b.connect("clicked", lambda *_: self.show_text(pr["title"], pr["body"]))
+                           tooltip_text=_('Vollständige Meldung'))
+            b.connect("clicked", lambda *_x: self.show_text(pr["title"], pr["body"]))
             card.append(b)
         return card
 
@@ -644,18 +665,16 @@ class MainWindow(Adw.ApplicationWindow):
         box = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER)
         box.append(spin)
         box.append(Gtk.Label(label="GiB"))
-        d = Adw.AlertDialog(heading="Image vergrößern",
-                            body=f"Das Image ist zurzeit {cur} GiB groß. Es belegt auf dem NAS weiterhin nur "
-                                 "so viel Platz, wie tatsächlich gesichert ist. Verkleinern ist später nicht "
-                                 "möglich.")
+        d = Adw.AlertDialog(heading=_('Image vergrößern'),
+                            body=_('Das Image ist zurzeit {cur} GiB groß. Es belegt auf dem NAS weiterhin nur so viel Platz, wie tatsächlich gesichert ist. Verkleinern ist später nicht möglich.').format(cur=cur))
         d.set_extra_child(box)
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("ok", "Vergrößern")
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("ok", _('Vergrößern'))
         d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         d.set_close_response("cancel")
         d.connect("response", lambda _d, r: r == "ok" and self.run_op(
-            "Image wird vergrößert", ["resize-image", str(int(spin.get_value()))],
-            lambda rc, l: rc == 0 and self.toast(f"Image auf {int(spin.get_value())} GiB vergrößert"),
+            _('Image wird vergrößert'), ["resize-image", str(int(spin.get_value()))],
+            lambda rc, l: rc == 0 and self.toast(_('Image auf {0} GiB vergrößert').format(int(spin.get_value()))),
             cancellable=False))
         d.present(self)
 
@@ -682,28 +701,28 @@ class MainWindow(Adw.ApplicationWindow):
         valid = [s for s in self.snaps if s.get("valid")]
         if valid:
             last = valid[-1]
-            info = f"Letzter Snapshot {fmt_ago(last['epoch'])} · {len(self.snaps)} Snapshots"
+            info = _('Letzter Snapshot {0} · {1} Snapshots').format(fmt_ago(last['epoch']), len(self.snaps))
         else:
-            info = "Noch kein Snapshot vorhanden"
+            info = _('Noch kein Snapshot vorhanden')
         mid.append(Gtk.Label(label=info, xalign=0, css_classes=["dim-label"]))
         chips = Gtk.Box(spacing=6, margin_top=6)
         if cfg.get("rescue_mode"):
-            chips.append(pill("Rettungssystem · nur Wiederherstellung", "warning"))
-            chips.append(pill(f"Rechner: {cfg['machine_name']}", "neutral"))
+            chips.append(pill(_('Rettungssystem · nur Wiederherstellung'), "warning"))
+            chips.append(pill(_('Rechner: {0}').format(cfg['machine_name']), "neutral"))
             mid.append(chips)
             card.append(mid)
             return self._hero_space(card, d)
         sch = cfg["schedule"]
-        names = [lbl for key, lbl, _ in LEVELS if sch.get(key, {}).get("enabled")]
+        names = [lbl for key, lbl, _x in LEVELS if sch.get(key, {}).get("enabled")]
         if cfg["pacman_hook"]["enabled"]:
-            names.append("Vor Updates")
+            names.append(_('Vor Updates'))
         if names:
             for n in names:
                 chips.append(pill(n, "success"))
         else:
-            chips.append(pill("Keine automatischen Snapshots", "neutral"))
+            chips.append(pill(_('Keine automatischen Snapshots'), "neutral"))
         if d.get("mode") == "image":
-            chips.append(pill("Image-Container" + (" · verschlüsselt" if cfg["target"]["encrypt"] else ""),
+            chips.append(pill(_('Image-Container') + (_(' · verschlüsselt') if cfg["target"]["encrypt"] else ""),
                               "neutral"))
         mid.append(chips)
         card.append(mid)
@@ -715,7 +734,7 @@ class MainWindow(Adw.ApplicationWindow):
             right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER,
                             width_request=170)
             used = 1 - free / total
-            right.append(Gtk.Label(label=f"{ns.human(free)} frei", xalign=1, css_classes=["heading"]))
+            right.append(Gtk.Label(label=_('{0} frei').format(ns.human(free)), xalign=1, css_classes=["heading"]))
             lvl = Gtk.LevelBar(value=used, min_value=0, max_value=1)
             lvl.remove_offset_value("low")
             lvl.remove_offset_value("high")
@@ -723,12 +742,12 @@ class MainWindow(Adw.ApplicationWindow):
             if used > 0.9:
                 lvl.add_css_class("warn")
             right.append(lvl)
-            right.append(Gtk.Label(label=f"von {ns.human(total)}", xalign=1, css_classes=["dim-label", "caption"]))
+            right.append(Gtk.Label(label=_('von {0}').format(ns.human(total)), xalign=1, css_classes=["dim-label", "caption"]))
             card.append(right)
         if d.get("in_progress"):
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
             box.append(card)
-            bn = Adw.Banner(title="Ein unterbrochener Snapshot wird beim nächsten Erstellen fortgesetzt.",
+            bn = Adw.Banner(title=_('Ein unterbrochener Snapshot wird beim nächsten Erstellen fortgesetzt.'),
                             revealed=True)
             box.append(bn)
             return box
@@ -741,9 +760,9 @@ class MainWindow(Adw.ApplicationWindow):
         if s.get("os"):
             sub = f"{sub} · {s['os']}" if sub else s["os"]
         if not s.get("valid"):
-            sub = "⚠ Unvollständig – " + sub
+            sub = _('⚠ Unvollständig – ') + sub
         elif s.get("status") == "warnings":
-            sub = "⚠ Mit Warnungen – " + sub
+            sub = _('⚠ Mit Warnungen – ') + sub
         row = Adw.ActionRow(title=GLib.markup_escape_text(title), subtitle=GLib.markup_escape_text(sub),
                             activatable=True, subtitle_lines=1)
         tags = s.get("tags") or []
@@ -752,45 +771,44 @@ class MainWindow(Adw.ApplicationWindow):
         for t in tags:
             lbl, style = TAG_STYLE.get(t, (t, "neutral"))
             row.add_suffix(pill(lbl, style))
-        rb = Gtk.Button(icon_name="edit-undo-symbolic", tooltip_text="Wiederherstellen…",
+        rb = Gtk.Button(icon_name="edit-undo-symbolic", tooltip_text=_('Wiederherstellen…'),
                         valign=Gtk.Align.CENTER, css_classes=["flat"], action_name="win.restore",
                         action_target=GLib.Variant("s", name))
         row.add_suffix(rb)
         menu = Gio.Menu()
-        for label, act in (("Dateien zurückholen…", "files"), ("Im Dateimanager öffnen", "browse"),
-                           ("Details & Kommentar…", "details")):
+        for label, act in ((_('Dateien zurückholen…'), "files"), (_('Im Dateimanager öffnen'), "browse"),
+                           (_('Details & Kommentar…'), "details")):
             it = Gio.MenuItem.new(label, None)
             it.set_action_and_target_value("win." + act, GLib.Variant("s", name))
             menu.append_item(it)
         dsec = Gio.Menu()
-        it = Gio.MenuItem.new("Löschen…", None)
+        it = Gio.MenuItem.new(_("Löschen…"), None)
         it.set_action_and_target_value("win.delete", GLib.Variant("s", name))
         dsec.append_item(it)
         menu.append_section(None, dsec)
         row.add_suffix(Gtk.MenuButton(icon_name="view-more-symbolic", menu_model=menu, valign=Gtk.Align.CENTER,
-                                      css_classes=["flat"], tooltip_text="Weitere Aktionen"))
-        row.connect("activated", lambda *_: self.details(s))
+                                      css_classes=["flat"], tooltip_text=_('Weitere Aktionen')))
+        row.connect("activated", lambda *_x: self.details(s))
         return row
 
     # ---- Aktionen
     def create(self):
-        body = "Optional eine kurze Beschreibung, z.B. „vor Treiber-Update“."
+        body = _('Optional eine kurze Beschreibung, z.B. „vor Treiber-Update“.')
         if not [x for x in self.snaps if x.get("valid")] and self.wireless():
-            body += ("\n\nHinweis: Der erste Snapshot überträgt das ganze System, und du bist per WLAN "
-                     "verbunden. Mit LAN-Kabel geht es schneller und zuverlässiger.")
-        d = Adw.AlertDialog(heading="Snapshot erstellen", body=body)
-        entry = Gtk.Entry(placeholder_text="Kommentar (optional)", activates_default=True)
+            body += (_('\n\nHinweis: Der erste Snapshot überträgt das ganze System, und du bist per WLAN verbunden. Mit LAN-Kabel geht es schneller und zuverlässiger.'))
+        d = Adw.AlertDialog(heading=_('Snapshot erstellen'), body=body)
+        entry = Gtk.Entry(placeholder_text=_('Kommentar (optional)'), activates_default=True)
         d.set_extra_child(entry)
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("create", "Erstellen")
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("create", _('Erstellen'))
         d.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
         d.set_default_response("create")
         d.set_close_response("cancel")
 
         def resp(_d, r):
             if r == "create":
-                self.run_op("Snapshot wird erstellt", ["create", "-c", entry.get_text().strip()],
-                            lambda rc, l: rc == 0 and self.toast("Snapshot erstellt"))
+                self.run_op(_('Snapshot wird erstellt'), ["create", "-c", entry.get_text().strip()],
+                            lambda rc, l: rc == 0 and self.toast(_('Snapshot erstellt')))
         d.connect("response", resp)
         d.present(self)
         entry.grab_focus()
@@ -798,16 +816,15 @@ class MainWindow(Adw.ApplicationWindow):
     def delete(self, s):
         if not s:
             return
-        d = Adw.AlertDialog(heading="Snapshot löschen?",
-                            body=f"{fmt_when(s['epoch'])}\n{s.get('comment') or ''}\n\n"
-                                 "Der Snapshot wird endgültig entfernt.")
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("delete", "Löschen")
+        d = Adw.AlertDialog(heading=_('Snapshot löschen?'),
+                            body=_('{0}\n{1}\n\nDer Snapshot wird endgültig entfernt.').format(fmt_when(s['epoch']), s.get('comment') or ''))
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("delete", _('Löschen'))
         d.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
         d.set_close_response("cancel")
         d.connect("response", lambda _d, r: r == "delete" and self.run_op(
-            "Snapshot wird gelöscht", ["delete", "-y", s["name"]],
-            lambda rc, l: rc == 0 and self.toast("Snapshot gelöscht"), cancellable=False))
+            _('Snapshot wird gelöscht'), ["delete", "-y", s["name"]],
+            lambda rc, l: rc == 0 and self.toast(_('Snapshot gelöscht')), cancellable=False))
         d.present(self)
 
     def restore(self, s):
@@ -834,7 +851,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self.mounted_by_us = True
                 cb(path)
             else:
-                self.toast("Einbinden fehlgeschlagen: " + Job.error_of(lines)[:120], 5)
+                self.toast(_('Einbinden fehlgeschlagen: ') + Job.error_of(lines)[:120], 5)
                 cb(None)
         Job(["mount", "-q"], None, done)
 
@@ -842,7 +859,7 @@ class MainWindow(Adw.ApplicationWindow):
         if not s:
             return
         if self.listing and self.listing.get("mode") == "ssh":
-            self.toast("Bei SSH-Zielen bitte „Dateien zurückholen“ verwenden", 4)
+            self.toast(_('Bei SSH-Zielen bitte „Dateien zurückholen“ verwenden'), 4)
             return
 
         def got(base):
@@ -850,9 +867,9 @@ class MainWindow(Adw.ApplicationWindow):
                 return
             path = os.path.join(base, s["name"], "localhost")
             if open_as_user(path):
-                self.toast("Snapshot im Dateimanager geöffnet")
+                self.toast(_('Snapshot im Dateimanager geöffnet'))
             else:
-                self.toast(f"Eingebunden unter {path}", 6)
+                self.toast(_('Eingebunden unter {path}').format(path=path), 6)
         self.mount_snapshots(got)
 
     def open_settings(self):
@@ -861,22 +878,21 @@ class MainWindow(Adw.ApplicationWindow):
     def about(self):
         a = Adw.AboutDialog(application_name="netshift", version=ns.VERSION,
                             application_icon="drive-harddisk-system-symbolic",
-                            comments="System-Snapshots wie Timeshift – lokal, auf SMB-, NFS- und SSH-Zielen.",
+                            comments=_('System-Snapshots wie Timeshift – lokal, auf SMB-, NFS- und SSH-Zielen.'),
                             license_type=Gtk.License.GPL_3_0, developer_name="netshift")
         a.present(self)
 
     def ask_reboot(self, seconds=10):
-        d = Adw.AlertDialog(heading="Wiederherstellung abgeschlossen")
-        d.add_response("later", "Später")
-        d.add_response("now", "Jetzt neu starten")
+        d = Adw.AlertDialog(heading=_('Wiederherstellung abgeschlossen'))
+        d.add_response("later", _('Später'))
+        d.add_response("now", _('Jetzt neu starten'))
         d.set_response_appearance("now", Adw.ResponseAppearance.SUGGESTED)
         d.set_default_response("now")
         d.set_close_response("later")
         state = {"left": seconds, "src": 0}
 
         def tick():
-            d.set_body(f"Das System wird in {state['left']} Sekunden neu gestartet, damit alle Änderungen "
-                       "wirksam werden.")
+            d.set_body(_('Das System wird in {0} Sekunden neu gestartet, damit alle Änderungen wirksam werden.').format(state['left']))
             if state["left"] <= 0:
                 d.close()
                 subprocess.Popen(["systemctl", "reboot"])
@@ -891,19 +907,18 @@ class MainWindow(Adw.ApplicationWindow):
             if r == "now":
                 subprocess.Popen(["systemctl", "reboot"])
             else:
-                self.toast("Bitte bald neu starten, damit alle Änderungen wirksam werden", 6)
+                self.toast(_('Bitte bald neu starten, damit alle Änderungen wirksam werden'), 6)
         tick()
         state["src"] = GLib.timeout_add_seconds(1, lambda: tick() or (state.update(src=0) or False))
         d.connect("response", resp)
         d.present(self)
 
-    def _on_close(self, *_):
+    def _on_close(self, *_x):
         if self.busy():
-            d = Adw.AlertDialog(heading="Vorgang läuft noch",
-                                body="Beim Beenden wird der laufende Vorgang abgebrochen. Ein abgebrochener "
-                                     "Snapshot wird beim nächsten Mal fortgesetzt.")
-            d.add_response("stay", "Weiterlaufen lassen")
-            d.add_response("quit", "Abbrechen und beenden")
+            d = Adw.AlertDialog(heading=_('Vorgang läuft noch'),
+                                body=_('Beim Beenden wird der laufende Vorgang abgebrochen. Ein abgebrochener Snapshot wird beim nächsten Mal fortgesetzt.'))
+            d.add_response("stay", _('Weiterlaufen lassen'))
+            d.add_response("quit", _('Abbrechen und beenden'))
             d.set_response_appearance("quit", Adw.ResponseAppearance.DESTRUCTIVE)
             d.set_close_response("stay")
 
@@ -954,16 +969,16 @@ def radio_row(title, subtitle, group=None):
 def device_menu_button(on_pick):
     """Knopf mit Liste der Laufwerke."""
     mb = Gtk.MenuButton(icon_name="drive-harddisk-symbolic", valign=Gtk.Align.CENTER,
-                        css_classes=["flat"], tooltip_text="Laufwerk auswählen")
+                        css_classes=["flat"], tooltip_text=_('Laufwerk auswählen'))
     pop = Gtk.Popover()
     lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["boxed-list"],
                      margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
     devs = lsblk_parts()
     if not devs:
-        lb.append(Adw.ActionRow(title="Keine Laufwerke gefunden"))
+        lb.append(Adw.ActionRow(title=_('Keine Laufwerke gefunden')))
     for d in devs:
         running = d.get("mountpoint") == "/"
-        sub = dev_subtitle(d) + (" · dieses laufende System" if running else "")
+        sub = dev_subtitle(d) + (_(' · dieses laufende System') if running else "")
         r = Adw.ActionRow(title=d["path"], subtitle=GLib.markup_escape_text(sub), activatable=not running,
                           sensitive=not running)
         if d.get("locked"):
@@ -997,7 +1012,7 @@ def pick_folder(parent, title, cb, initial=None):
 class RestoreDialog:
     def __init__(self, win, snap):
         self.win, self.snap = win, snap
-        self.d, page, foot, self.toasts = dialog_shell("System wiederherstellen", 600, 680)
+        self.d, page, foot, self.toasts = dialog_shell(_('System wiederherstellen'), 600, 680)
 
         g0 = Adw.PreferencesGroup()
         r = Adw.ActionRow(title=fmt_when(snap["epoch"]),
@@ -1008,69 +1023,67 @@ class RestoreDialog:
         g0.add(r)
         page.add(g0)
 
-        g1 = Adw.PreferencesGroup(title="Wohin?")
-        self.r_live, self.cb_live = radio_row("Dieses System",
-                                              "Systemdateien auf den Stand des Snapshots setzen, danach Neustart")
-        self.r_other, self.cb_other = radio_row("Anderes Laufwerk oder Ordner",
-                                                "Live-USB, neue Festplatte oder ein Verzeichnis", self.cb_live)
+        g1 = Adw.PreferencesGroup(title=_('Wohin?'))
+        self.r_live, self.cb_live = radio_row(_('Dieses System'),
+                                              _('Systemdateien auf den Stand des Snapshots setzen, danach Neustart'))
+        self.r_other, self.cb_other = radio_row(_('Anderes Laufwerk oder Ordner'),
+                                                _('Live-USB, neue Festplatte oder ein Verzeichnis'), self.cb_live)
         cfg = ns.load_config()
         self.rescue = bool(cfg.get("rescue_mode"))
         foreign = bool(snap.get("host")) and snap["host"] != ns.hostname()
         if self.rescue or foreign:
             self.r_live.set_visible(False)
             self.cb_other.set_active(True)
-            self.r_other.set_title("Festplatte des Rechners")
+            self.r_other.set_title(_('Festplatte des Rechners'))
             self.r_other.set_subtitle(GLib.markup_escape_text(
-                f"Systempartition von „{snap.get('host') or cfg['machine_name']}“ auswählen – das Laufwerk-Symbol "
-                "rechts listet alle Partitionen (Größe, Dateisystem, Name)"))
+                _('Systempartition von „{0}“ auswählen – das Laufwerk-Symbol rechts listet alle Partitionen (Größe, Dateisystem, Name)').format(snap.get('host') or cfg['machine_name'])))
             self.r_other.set_activatable(False)
             self.cb_other.set_visible(False)
         else:
             self.cb_live.set_active(True)
         g1.add(self.r_live)
         g1.add(self.r_other)
-        self.target = Adw.EntryRow(title="Gerät oder Ordner (z.B. /dev/sda2)", visible=False)
+        self.target = Adw.EntryRow(title=_('Gerät oder Ordner (z.B. /dev/sda2)'), visible=False)
         self.target.add_suffix(device_menu_button(self.pick_device))
-        self.target.add_suffix(icon_button("folder-open-symbolic", "Ordner wählen",
-                                           lambda: pick_folder(self.d, "Wurzel des Zielsystems",
+        self.target.add_suffix(icon_button("folder-open-symbolic", _('Ordner wählen'),
+                                           lambda: pick_folder(self.d, _('Wurzel des Zielsystems'),
                                                                self.target.set_text)))
         g1.add(self.target)
         page.add(g1)
 
-        g2 = Adw.PreferencesGroup(title="Optionen")
-        self.sw_pre = Adw.SwitchRow(title="Sicherheits-Snapshot anlegen",
-                                    subtitle="Aktuellen Zustand vorher sichern – falls du zurück willst", active=True)
-        self.sw_reboot = Adw.SwitchRow(title="Danach neu starten", subtitle="Dringend empfohlen", active=True)
-        self.sw_fstab = Adw.SwitchRow(title="fstab und crypttab behalten",
-                                      subtitle="Bei geänderten Partitionen oder UUIDs")
-        self.sw_grub = Adw.SwitchRow(title="GRUB-Konfiguration neu erzeugen",
-                                     subtitle="grub-mkconfig im wiederhergestellten System", visible=False)
+        g2 = Adw.PreferencesGroup(title=_('Optionen'))
+        self.sw_pre = Adw.SwitchRow(title=_('Sicherheits-Snapshot anlegen'),
+                                    subtitle=_('Aktuellen Zustand vorher sichern – falls du zurück willst'), active=True)
+        self.sw_reboot = Adw.SwitchRow(title=_('Danach neu starten'), subtitle=_('Dringend empfohlen'), active=True)
+        self.sw_fstab = Adw.SwitchRow(title=_('fstab und crypttab behalten'),
+                                      subtitle=_('Bei geänderten Partitionen oder UUIDs'))
+        self.sw_grub = Adw.SwitchRow(title=_('GRUB-Konfiguration neu erzeugen'),
+                                     subtitle=_('grub-mkconfig im wiederhergestellten System'), visible=False)
         for w in (self.sw_pre, self.sw_reboot, self.sw_fstab, self.sw_grub):
             g2.add(w)
         page.add(g2)
 
         g3 = Adw.PreferencesGroup()
-        self.wlan_row = Adw.ActionRow(title="Verbindung über WLAN",
-                                      subtitle="Für die Wiederherstellung besser ein LAN-Kabel verwenden – bei "
-                                               "Aussetzern bricht sie sonst ab.", visible=False)
+        self.wlan_row = Adw.ActionRow(title=_('Verbindung über WLAN'),
+                                      subtitle=_('Für die Wiederherstellung besser ein LAN-Kabel verwenden – bei Aussetzern bricht sie sonst ab.'), visible=False)
         self.wlan_row.add_prefix(Gtk.Image(icon_name="network-wireless-symbolic", css_classes=["warning"]))
         g3.add(self.wlan_row)
         GLib.idle_add(lambda: self.wlan_row.set_visible(self.win.wireless()) and False)
         home = snap.get("include_home")
         note = Adw.ActionRow(
-            title="Persönliche Dateien werden zurückgesetzt" if home else "Persönliche Dateien bleiben unverändert",
-            subtitle="Dieser Snapshot enthält /home." if home else
-            "/home und /root sind nicht Teil dieses Snapshots und werden nicht angefasst.")
+            title=_('Persönliche Dateien werden zurückgesetzt') if home else _('Persönliche Dateien bleiben unverändert'),
+            subtitle=_('Dieser Snapshot enthält /home.') if home else
+            _('/home und /root sind nicht Teil dieses Snapshots und werden nicht angefasst.'))
         note.add_prefix(Gtk.Image(icon_name="dialog-warning-symbolic" if home else "emblem-ok-symbolic",
                                   css_classes=["warning" if home else "success"]))
         g3.add(note)
         page.add(g3)
 
-        self.cb_live.connect("toggled", lambda *_: self.sync())
-        bprev = Gtk.Button(label="Vorschau der Änderungen", css_classes=["pill"])
-        bprev.connect("clicked", lambda *_: self.preview())
-        bgo = Gtk.Button(label="Wiederherstellen", css_classes=["pill", "destructive-action"])
-        bgo.connect("clicked", lambda *_: self.go())
+        self.cb_live.connect("toggled", lambda *_x: self.sync())
+        bprev = Gtk.Button(label=_('Vorschau der Änderungen'), css_classes=["pill"])
+        bprev.connect("clicked", lambda *_x: self.preview())
+        bgo = Gtk.Button(label=_('Wiederherstellen'), css_classes=["pill", "destructive-action"])
+        bgo.connect("clicked", lambda *_x: self.go())
         foot.append(bprev)
         foot.append(bgo)
         self.sync()
@@ -1095,14 +1108,13 @@ class RestoreDialog:
             self.target.set_text(d["path"])
 
     def ask_unlock(self, dev, retry=False, then=None):
-        d = Adw.AlertDialog(heading="Verschlüsselte Partition entsperren",
-                            body=(("Das Passwort war falsch. " if retry else "")
-                                  + f"{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner "
-                                    "beim Starten entsperrst."))
+        d = Adw.AlertDialog(heading=_('Verschlüsselte Partition entsperren'),
+                            body=((_('Das Passwort war falsch. ') if retry else "")
+                                  + _('{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner beim Starten entsperrst.').format(dev=dev)))
         pw = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
         d.set_extra_child(pw)
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("unlock", "Entsperren")
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("unlock", _('Entsperren'))
         d.set_response_appearance("unlock", Adw.ResponseAppearance.SUGGESTED)
         d.set_default_response("unlock")
         d.set_close_response("cancel")
@@ -1112,7 +1124,7 @@ class RestoreDialog:
                 return
             self.target.set_text(dev)
             self.target.set_sensitive(False)
-            self.toasts.add_toast(Adw.Toast(title="Entsperre…", timeout=2))
+            self.toasts.add_toast(Adw.Toast(title=_('Entsperre…'), timeout=2))
 
             def done(rc, lines):
                 self.target.set_sensitive(True)
@@ -1121,10 +1133,10 @@ class RestoreDialog:
                     self.target.set_text(path)
                     if path.startswith("/dev/mapper/netshift-"):
                         self.win.unlocked.append(path)
-                    self.toasts.add_toast(Adw.Toast(title=f"Entsperrt – Ziel ist jetzt {path}", timeout=4))
+                    self.toasts.add_toast(Adw.Toast(title=_('Entsperrt – Ziel ist jetzt {path}').format(path=path), timeout=4))
                     if then:
                         then()
-                elif "Falsches Passwort" in "".join(lines):
+                elif rc == 3:          # falsches Passwort
                     self.ask_unlock(dev, retry=True, then=then)
                 else:
                     self.toasts.add_toast(Adw.Toast(title=Job.error_of(lines)[:150], timeout=6))
@@ -1139,7 +1151,7 @@ class RestoreDialog:
         else:
             t = self.target.get_text().strip()
             if not t:
-                self.toasts.add_toast(Adw.Toast(title="Bitte Laufwerk oder Ordner angeben"))
+                self.toasts.add_toast(Adw.Toast(title=_('Bitte Laufwerk oder Ordner angeben')))
                 self.target.grab_focus()
                 return None
             # von Hand eingetragene, noch verschlossene Partition → erst entsperren
@@ -1160,7 +1172,7 @@ class RestoreDialog:
         a = self.args(then=self.preview)
         if a is None:
             return
-        PreviewDialog(self.win, f"Vorschau: {fmt_when(self.snap['epoch'])}",
+        PreviewDialog(self.win, _('Vorschau: {0}').format(fmt_when(self.snap['epoch'])),
                       ["diff", self.snap["name"]] + a).present(self.d)
 
     def go(self):
@@ -1168,16 +1180,14 @@ class RestoreDialog:
         if a is None:
             return
         live = self.live()
-        what = "das laufende System" if live else a[1]
-        body = (f"Der Snapshot vom {fmt_when(self.snap['epoch'])} wird auf {what} "
-                "zurückgespielt. Seitdem hinzugekommene Systemdateien werden entfernt.")
+        what = _('das laufende System') if live else a[1]
+        body = (_('Der Snapshot vom {0} wird auf {what} zurückgespielt. Seitdem hinzugekommene Systemdateien werden entfernt.').format(fmt_when(self.snap['epoch']), what=what))
         wlan = self.win.wireless()
         if wlan:
-            body += ("\n\n⚠ Du bist per WLAN verbunden. Bricht die Verbindung ab, ist das Ziel nur teilweise "
-                     "wiederhergestellt. Am besten jetzt ein LAN-Kabel anschließen.")
-        d = Adw.AlertDialog(heading="Wirklich wiederherstellen?", body=body)
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("go", "Trotzdem wiederherstellen" if wlan else "Wiederherstellen")
+            body += (_('\n\n⚠ Du bist per WLAN verbunden. Bricht die Verbindung ab, ist das Ziel nur teilweise wiederhergestellt. Am besten jetzt ein LAN-Kabel anschließen.'))
+        d = Adw.AlertDialog(heading=_('Wirklich wiederherstellen?'), body=body)
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("go", _('Trotzdem wiederherstellen') if wlan else _('Wiederherstellen'))
         d.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE)
         d.set_close_response("cancel")
 
@@ -1198,20 +1208,19 @@ class RestoreDialog:
                 if reboot:
                     self.win.ask_reboot()
                 elif live:
-                    self.win.toast("Wiederhergestellt – bitte bald neu starten", 6)
+                    self.win.toast(_('Wiederhergestellt – bitte bald neu starten'), 6)
                 elif self.rescue:
-                    d2 = Adw.AlertDialog(heading="Wiederherstellung abgeschlossen",
-                                         body="Fahre den Rechner jetzt herunter, ziehe den USB-Stick ab und "
-                                              "starte ihn wieder – er bootet dann mit dem zurückgespielten System.")
-                    d2.add_response("later", "Später")
-                    d2.add_response("off", "Herunterfahren")
+                    d2 = Adw.AlertDialog(heading=_('Wiederherstellung abgeschlossen'),
+                                         body=_('Fahre den Rechner jetzt herunter, ziehe den USB-Stick ab und starte ihn wieder – er bootet dann mit dem zurückgespielten System.'))
+                    d2.add_response("later", _('Später'))
+                    d2.add_response("off", _('Herunterfahren'))
                     d2.set_response_appearance("off", Adw.ResponseAppearance.SUGGESTED)
                     d2.set_close_response("later")
                     d2.connect("response", lambda _d, r: r == "off" and subprocess.Popen(["systemctl", "poweroff"]))
                     d2.present(self.win)
                 else:
-                    self.win.toast("Wiederherstellung abgeschlossen")
-            self.win.run_op("System wird wiederhergestellt", args, done, cancellable=False)
+                    self.win.toast(_('Wiederherstellung abgeschlossen'))
+            self.win.run_op(_('System wird wiederhergestellt'), args, done, cancellable=False)
         d.connect("response", resp)
         d.present(self.d)
 
@@ -1228,20 +1237,20 @@ class PreviewDialog:
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         lb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, valign=Gtk.Align.CENTER)
         lb.append(Gtk.Spinner(spinning=True, width_request=32, height_request=32))
-        lb.append(Gtk.Label(label="Vergleiche Snapshot mit dem Ziel…", css_classes=["dim-label"]))
+        lb.append(Gtk.Label(label=_('Vergleiche Snapshot mit dem Ziel…'), css_classes=["dim-label"]))
         self.stack.add_named(lb, "loading")
-        self.err = Adw.StatusPage(icon_name="dialog-error-symbolic", title="Vorschau fehlgeschlagen")
+        self.err = Adw.StatusPage(icon_name="dialog-error-symbolic", title=_('Vorschau fehlgeschlagen'))
         self.stack.add_named(self.err, "error")
-        self.none = Adw.StatusPage(icon_name="emblem-ok-symbolic", title="Keine Änderungen",
-                                   description="Das Ziel entspricht bereits diesem Snapshot.")
+        self.none = Adw.StatusPage(icon_name="emblem-ok-symbolic", title=_('Keine Änderungen'),
+                                   description=_('Das Ziel entspricht bereits diesem Snapshot.'))
         self.stack.add_named(self.none, "none")
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12,
                        margin_start=12, margin_end=12)
         stats = Gtk.Box(spacing=12, homogeneous=True)
         self.stat = {}
-        for key, label, css in (("new", "Neu", "stat-new"), ("changed", "Geändert", "stat-changed"),
-                                ("del", "Gelöscht", "stat-deleted")):
+        for key, label, css in (("new", _('Neu'), "stat-new"), ("changed", _('Geändert'), "stat-changed"),
+                                ("del", _('Gelöscht'), "stat-deleted")):
             c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, css_classes=["card"], margin_top=2)
             v = Gtk.Label(label="0", css_classes=["stat-value", css], margin_top=12)
             c.append(v)
@@ -1250,12 +1259,12 @@ class PreviewDialog:
             self.stat[key] = v
         body.append(stats)
         fb = Gtk.Box(spacing=8)
-        self.search = Gtk.SearchEntry(placeholder_text="Pfad filtern…", hexpand=True)
+        self.search = Gtk.SearchEntry(placeholder_text=_('Pfad filtern…'), hexpand=True)
         fb.append(self.search)
         seg = Gtk.Box(css_classes=["linked"])
         self.kind = "all"
         first = None
-        for key, label in (("all", "Alle"), ("new", "Neu"), ("changed", "Geändert"), ("del", "Gelöscht")):
+        for key, label in (("all", _('Alle')), ("new", _('Neu')), ("changed", _('Geändert')), ("del", _('Gelöscht'))):
             b = Gtk.ToggleButton(label=label)
             if first:
                 b.set_group(first)
@@ -1278,11 +1287,11 @@ class PreviewDialog:
         self.hint = Gtk.Label(css_classes=["dim-label", "caption"], xalign=0, wrap=True)
         body.append(self.hint)
         self.stack.add_named(body, "list")
-        self.search.connect("search-changed", lambda *_: self.filter.changed(Gtk.FilterChange.DIFFERENT))
+        self.search.connect("search-changed", lambda *_x: self.filter.changed(Gtk.FilterChange.DIFFERENT))
         tv.set_content(self.stack)
         self.d.set_child(tv)
         self.job = Job(args, None, self._done)
-        self.d.connect("closed", lambda *_: self.job.proc.poll() is None and self.job.cancel())
+        self.d.connect("closed", lambda *_x: self.job.proc.poll() is None and self.job.cancel())
 
     def present(self, parent):
         self.d.present(parent)
@@ -1308,9 +1317,9 @@ class PreviewDialog:
         kind, path = li.get_item().get_string().split("\t", 1)
         img = li.get_child().get_first_child()
         lbl = img.get_next_sibling()
-        icon, css, tip = {"new": ("list-add-symbolic", "change-icon-new", "wird neu angelegt"),
-                          "changed": ("document-edit-symbolic", "change-icon-changed", "wird überschrieben"),
-                          "del": ("list-remove-symbolic", "change-icon-del", "wird gelöscht")}[kind]
+        icon, css, tip = {"new": ("list-add-symbolic", "change-icon-new", _('wird neu angelegt')),
+                          "changed": ("document-edit-symbolic", "change-icon-changed", _('wird überschrieben')),
+                          "del": ("list-remove-symbolic", "change-icon-del", _('wird gelöscht'))}[kind]
         img.set_from_icon_name(icon)
         for c in ("change-icon-new", "change-icon-changed", "change-icon-del"):
             img.remove_css_class(c)
@@ -1340,11 +1349,10 @@ class PreviewDialog:
             return
         self.model.splice(0, 0, items)
         for k, v in counts.items():
-            self.stat[k].set_label(f"{v:,}".replace(",", "."))
+            self.stat[k].set_label(fmt_int(v))
         self.hint.set_label(
-            "„Neu“ = fehlt auf dem Ziel und wird angelegt · „Geändert“ = wird mit der Version aus dem Snapshot "
-            "überschrieben · „Gelöscht“ = ist seit dem Snapshot hinzugekommen und wird entfernt."
-            + (f" Außerdem werden bei {attr} Einträgen nur Zeitstempel/Rechte angepasst." if attr else ""))
+            _('„Neu“ = fehlt auf dem Ziel und wird angelegt · „Geändert“ = wird mit der Version aus dem Snapshot überschrieben · „Gelöscht“ = ist seit dem Snapshot hinzugekommen und wird entfernt.')
+            + (_(' Außerdem werden bei {attr} Einträgen nur Zeitstempel/Rechte angepasst.').format(attr=attr) if attr else ""))
         self.stack.set_visible_child_name("list")
 
 
@@ -1352,46 +1360,46 @@ class FilesDialog:
     def __init__(self, win, snap):
         self.win, self.snap = win, snap
         self.paths = []
-        self.d, page, foot, self.toasts = dialog_shell("Dateien zurückholen", 600, 640)
+        self.d, page, foot, self.toasts = dialog_shell(_('Dateien zurückholen'), 600, 640)
         self.ssh = bool(win.listing and win.listing.get("mode") == "ssh")
 
-        self.g_paths = Adw.PreferencesGroup(title="Was soll zurückgeholt werden?",
-                                            description=f"Aus dem Snapshot vom {fmt_when(snap['epoch'])}")
+        self.g_paths = Adw.PreferencesGroup(title=_('Was soll zurückgeholt werden?'),
+                                            description=_('Aus dem Snapshot vom {0}').format(fmt_when(snap['epoch'])))
         bb = Gtk.Box(spacing=6)
-        bb.append(Gtk.Button(child=Adw.ButtonContent(icon_name="document-open-symbolic", label="Dateien"),
+        bb.append(Gtk.Button(child=Adw.ButtonContent(icon_name="document-open-symbolic", label=_('Dateien')),
                              css_classes=["flat"], sensitive=not self.ssh))
-        bb.append(Gtk.Button(child=Adw.ButtonContent(icon_name="folder-open-symbolic", label="Ordner"),
+        bb.append(Gtk.Button(child=Adw.ButtonContent(icon_name="folder-open-symbolic", label=_('Ordner')),
                              css_classes=["flat"], sensitive=not self.ssh))
-        bb.get_first_child().connect("clicked", lambda *_: self.pick(False))
-        bb.get_last_child().connect("clicked", lambda *_: self.pick(True))
+        bb.get_first_child().connect("clicked", lambda *_x: self.pick(False))
+        bb.get_last_child().connect("clicked", lambda *_x: self.pick(True))
         self.g_paths.set_header_suffix(bb)
-        self.entry = Adw.EntryRow(title="Pfad eingeben, z.B. /etc/pacman.conf", show_apply_button=True)
-        self.entry.connect("apply", lambda *_: self.add_path(self.entry.get_text()))
-        self.entry.connect("entry-activated", lambda *_: self.add_path(self.entry.get_text()))
+        self.entry = Adw.EntryRow(title=_('Pfad eingeben, z.B. /etc/pacman.conf'), show_apply_button=True)
+        self.entry.connect("apply", lambda *_x: self.add_path(self.entry.get_text()))
+        self.entry.connect("entry-activated", lambda *_x: self.add_path(self.entry.get_text()))
         self.g_paths.add(self.entry)
         page.add(self.g_paths)
 
-        g = Adw.PreferencesGroup(title="Wohin?")
-        self.r_orig, self.cb_orig = radio_row("An den Originalort", "Aktuelle Version wird überschrieben")
+        g = Adw.PreferencesGroup(title=_('Wohin?'))
+        self.r_orig, self.cb_orig = radio_row(_('An den Originalort'), _('Aktuelle Version wird überschrieben'))
         u = invoking_user()
         default = os.path.join(u.pw_dir if u else "/root", "netshift-wiederhergestellt")
-        self.r_other, self.cb_other = radio_row("In einen anderen Ordner", default, self.cb_orig)
+        self.r_other, self.cb_other = radio_row(_('In einen anderen Ordner'), default, self.cb_orig)
         self.cb_other.set_active(True)
         self.other_dir = default
-        self.r_other.add_suffix(icon_button("folder-open-symbolic", "Ordner wählen", self.pick_dest))
+        self.r_other.add_suffix(icon_button("folder-open-symbolic", _('Ordner wählen'), self.pick_dest))
         g.add(self.r_orig)
         g.add(self.r_other)
         if ns.load_config().get("rescue_mode"):
             self.r_orig.set_visible(False)
-        self.sw_delete = Adw.SwitchRow(title="Ordner exakt angleichen",
-                                       subtitle="Seitdem neu hinzugekommene Dateien darin löschen")
+        self.sw_delete = Adw.SwitchRow(title=_('Ordner exakt angleichen'),
+                                       subtitle=_('Seitdem neu hinzugekommene Dateien darin löschen'))
         g.add(self.sw_delete)
         page.add(g)
 
-        bprev = Gtk.Button(label="Vorschau", css_classes=["pill"])
-        bprev.connect("clicked", lambda *_: self.go(dry=True))
-        bgo = Gtk.Button(label="Zurückholen", css_classes=["pill", "suggested-action"])
-        bgo.connect("clicked", lambda *_: self.go())
+        bprev = Gtk.Button(label=_('Vorschau'), css_classes=["pill"])
+        bprev.connect("clicked", lambda *_x: self.go(dry=True))
+        bgo = Gtk.Button(label=_('Zurückholen'), css_classes=["pill", "suggested-action"])
+        bgo.connect("clicked", lambda *_x: self.go())
         foot.append(bprev)
         foot.append(bgo)
 
@@ -1403,14 +1411,14 @@ class FilesDialog:
         if not p:
             return
         if not p.startswith("/"):
-            self.toasts.add_toast(Adw.Toast(title="Bitte einen absoluten Pfad angeben (beginnt mit /)"))
+            self.toasts.add_toast(Adw.Toast(title=_('Bitte einen absoluten Pfad angeben (beginnt mit /)')))
             return
         if p in self.paths:
             return
         self.paths.append(p)
         row = Adw.ActionRow(title=GLib.markup_escape_text(p))
         row.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
-        row.add_suffix(icon_button("user-trash-symbolic", "Entfernen",
+        row.add_suffix(icon_button("user-trash-symbolic", _('Entfernen'),
                                    lambda: (self.paths.remove(p), self.g_paths.remove(row))))
         self.g_paths.add(row)
         self.entry.set_text("")
@@ -1420,7 +1428,7 @@ class FilesDialog:
             if not base:
                 return
             root = os.path.join(base, self.snap["name"], "localhost")
-            fd = Gtk.FileDialog(title="Im Snapshot auswählen", modal=True,
+            fd = Gtk.FileDialog(title=_('Im Snapshot auswählen'), modal=True,
                                 initial_folder=Gio.File.new_for_path(root))
 
             def done(dlg, res):
@@ -1434,7 +1442,7 @@ class FilesDialog:
                         rel = os.path.relpath(p, root)
                         self.add_path("/" if rel == "." else "/" + rel)
                     else:
-                        self.toasts.add_toast(Adw.Toast(title="Bitte nur innerhalb des Snapshots auswählen"))
+                        self.toasts.add_toast(Adw.Toast(title=_('Bitte nur innerhalb des Snapshots auswählen')))
             if folder:
                 fd.select_multiple_folders(self.d.get_root(), None, done)
             else:
@@ -1446,13 +1454,13 @@ class FilesDialog:
             self.other_dir = p
             self.r_other.set_subtitle(GLib.markup_escape_text(p))
             self.cb_other.set_active(True)
-        pick_folder(self.d, "Zielordner", set_dir)
+        pick_folder(self.d, _('Zielordner'), set_dir)
 
     def go(self, dry=False):
         if self.entry.get_text().strip():
             self.add_path(self.entry.get_text())
         if not self.paths:
-            self.toasts.add_toast(Adw.Toast(title="Bitte mindestens eine Datei oder einen Ordner angeben"))
+            self.toasts.add_toast(Adw.Toast(title=_('Bitte mindestens eine Datei oder einen Ordner angeben')))
             return
         a = ["restore-files", self.snap["name"]] + self.paths + ["--yes"]
         if self.cb_other.get_active():
@@ -1460,19 +1468,19 @@ class FilesDialog:
         if self.sw_delete.get_active():
             a.append("--delete")
         if dry:
-            PreviewDialog(self.win, "Vorschau", a + ["--dry-run"]).present(self.d)
+            PreviewDialog(self.win, _('Vorschau'), a + ["--dry-run"]).present(self.d)
             return
-        dest = "den Originalort" if self.cb_orig.get_active() else self.other_dir
+        dest = _('den Originalort') if self.cb_orig.get_active() else self.other_dir
 
         def run():
             self.d.close()
-            self.win.run_op("Dateien werden zurückgeholt", a,
-                            lambda rc, l: rc == 0 and self.win.toast(f"{len(self.paths)} Element(e) wiederhergestellt"))
+            self.win.run_op(_('Dateien werden zurückgeholt'), a,
+                            lambda rc, l: rc == 0 and self.win.toast(_('{0} Element(e) wiederhergestellt').format(len(self.paths))))
         if self.cb_orig.get_active():
-            d = Adw.AlertDialog(heading="Aktuelle Dateien überschreiben?",
-                                body=f"{len(self.paths)} Element(e) werden an {dest} zurückgeschrieben.")
-            d.add_response("cancel", "Abbrechen")
-            d.add_response("go", "Überschreiben")
+            d = Adw.AlertDialog(heading=_('Aktuelle Dateien überschreiben?'),
+                                body=_('{0} Element(e) werden an {dest} zurückgeschrieben.').format(len(self.paths), dest=dest))
+            d.add_response("cancel", _('Abbrechen'))
+            d.add_response("go", _('Überschreiben'))
             d.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE)
             d.set_close_response("cancel")
             d.connect("response", lambda _d, r: r == "go" and run())
@@ -1484,32 +1492,32 @@ class FilesDialog:
 class DetailsDialog:
     def __init__(self, win, s):
         self.win, self.s = win, s
-        self.d, page, foot, self.toasts = dialog_shell("Snapshot-Details", 540, 680)
+        self.d, page, foot, self.toasts = dialog_shell(_('Snapshot-Details'), 540, 680)
         g = Adw.PreferencesGroup()
-        self.comment = Adw.EntryRow(title="Kommentar", text=s.get("comment") or "", show_apply_button=True)
-        self.comment.connect("apply", lambda *_: self.save_comment())
+        self.comment = Adw.EntryRow(title=_('Kommentar'), text=s.get("comment") or "", show_apply_button=True)
+        self.comment.connect("apply", lambda *_x: self.save_comment())
         g.add(self.comment)
         page.add(g)
         self._size_group(page, s)
-        gi_ = Adw.PreferencesGroup(title="Informationen")
+        gi_ = Adw.PreferencesGroup(title=_('Informationen'))
         tags = ", ".join(TAG_STYLE.get(t, (t,))[0] for t in s.get("tags") or []) or "–"
         dur = s.get("duration_s")
-        rows = [("Erstellt", fmt_when(s.get("epoch") or 0)), ("Typ", tags), ("System", s.get("os")),
-                ("Kernel", s.get("kernel")), ("Rechner", s.get("host")),
-                ("Dauer", f"{int(dur // 60)} min {int(dur % 60)} s" if dur else None),
-                ("Basis", fmt_when(dt.datetime.strptime(s["link_dest"], ns.TIME_FMT).timestamp())
-                 if s.get("link_dest") else "Vollständiger Snapshot"),
-                ("Home enthalten", "Ja" if s.get("include_home") else "Nein"),
-                ("Status", {"ok": "In Ordnung", "warnings": "Mit Warnungen"}.get(s.get("status"), "Unvollständig")),
-                ("Name", s["name"])]
+        rows = [(_('Erstellt'), fmt_when(s.get("epoch") or 0)), (_('Typ'), tags), (_('System'), s.get("os")),
+                (_('Kernel'), s.get("kernel")), (_('Rechner'), s.get("host")),
+                (_('Dauer'), f"{int(dur // 60)} min {int(dur % 60)} s" if dur else None),
+                (_('Basis'), fmt_when(dt.datetime.strptime(s["link_dest"], ns.TIME_FMT).timestamp())
+                 if s.get("link_dest") else _('Vollständiger Snapshot')),
+                (_('Home enthalten'), _('Ja') if s.get("include_home") else _('Nein')),
+                (_('Status'), {"ok": _('In Ordnung'), "warnings": _('Mit Warnungen')}.get(s.get("status"), _("Unvollständig"))),
+                (_('Name'), s["name"])]
         for k, v in rows:
             if v:
                 r = Adw.ActionRow(title=k, subtitle=GLib.markup_escape_text(str(v)), subtitle_selectable=True)
                 gi_.add(r)
         page.add(gi_)
-        for label, act, css in (("Löschen", "delete", ["pill", "destructive-action"]),
-                                ("Dateien zurückholen", "files", ["pill"]),
-                                ("Wiederherstellen", "restore", ["pill", "suggested-action"])):
+        for label, act, css in ((_('Löschen'), "delete", ["pill", "destructive-action"]),
+                                (_('Dateien zurückholen'), "files", ["pill"]),
+                                (_('Wiederherstellen'), "restore", ["pill", "suggested-action"])):
             b = Gtk.Button(label=label, css_classes=css)
             b.connect("clicked", lambda *_a, a=act: (self.d.close(), getattr(self.win, a)(self.s)))
             foot.append(b)
@@ -1521,16 +1529,15 @@ class DetailsDialog:
     # ---- Speicherplatz
     def _size_group(self, page, s):
         mode = (self.win.listing or {}).get("mode")
-        where = "im Image" if mode == "image" else "auf dem Ziel"
-        g = Adw.PreferencesGroup(title=f"Speicherplatz {where}")
-        self.btn_recalc = icon_button("view-refresh-symbolic", "Neu berechnen", lambda: self.load_size(True))
+        where = _('im Image') if mode == "image" else _('auf dem Ziel')
+        g = Adw.PreferencesGroup(title=_('Speicherplatz {where}').format(where=where))
+        self.btn_recalc = icon_button("view-refresh-symbolic", _('Neu berechnen'), lambda: self.load_size(True))
         self.btn_recalc.set_sensitive(False)
         g.set_header_suffix(self.btn_recalc)
         self.size_rows = {}
-        for key, title, sub in (("exclusive", "Belegt nur durch diesen Snapshot", "Wird beim Löschen frei"),
-                                ("total", "Gesamtumfang", "Vollständiges System zu diesem Zeitpunkt – unveränderte "
-                                                          "Dateien teilt er sich per Hardlink mit anderen Snapshots"),
-                                ("files", "Dateien", None)):
+        for key, title, sub in (("exclusive", _('Belegt nur durch diesen Snapshot'), _('Wird beim Löschen frei')),
+                                ("total", _('Gesamtumfang'), _('Vollständiges System zu diesem Zeitpunkt – unveränderte Dateien teilt er sich per Hardlink mit anderen Snapshots')),
+                                ("files", _('Dateien'), None)):
             r = Adw.ActionRow(title=title, subtitle=sub or "")
             st = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
             st.add_named(Gtk.Spinner(spinning=True), "busy")
@@ -1544,10 +1551,10 @@ class DetailsDialog:
         page.add(g)
         self.size_job = None
         if not s.get("valid"):
-            self._show_size(None, "Für unvollständige Snapshots nicht verfügbar.")
+            self._show_size(None, _('Für unvollständige Snapshots nicht verfügbar.'))
             return
         if s.get("size"):
-            self._show_size(s["size"], "Zuletzt berechnet – wird geprüft…")
+            self._show_size(s["size"], _('Zuletzt berechnet – wird geprüft…'))
         GLib.idle_add(self.load_size)
 
     def _show_size(self, data, note=""):
@@ -1555,7 +1562,7 @@ class DetailsDialog:
             if data is None:
                 lbl.set_label("–")
             elif key == "files":
-                lbl.set_label(f"{data.get('files', 0):,}".replace(",", "."))
+                lbl.set_label(fmt_int(data.get('files', 0)))
             else:
                 lbl.set_label(ns.human(data.get(key, 0)))
             st.set_visible_child_name("value")
@@ -1568,7 +1575,7 @@ class DetailsDialog:
 
     def load_size(self, refresh=False):
         if self.win.busy():
-            self.size_note.set_label("Während eines laufenden Vorgangs nicht verfügbar.")
+            self.size_note.set_label(_('Während eines laufenden Vorgangs nicht verfügbar.'))
             self.size_note.set_visible(True)
             for st, lbl in self.size_rows.values():
                 if st.get_visible_child_name() == "busy":
@@ -1579,10 +1586,9 @@ class DetailsDialog:
             GLib.timeout_add(300, lambda: self.load_size(refresh) and False)
             return False
         if not self.s.get("size") or refresh:
-            for st, _ in self.size_rows.values():
+            for st, _x in self.size_rows.values():
                 st.set_visible_child_name("busy")
-            self.size_note.set_label("Wird berechnet – bei vielen Dateien über das Netzwerk kann das "
-                                     "eine Minute dauern…")
+            self.size_note.set_label(_('Wird berechnet – bei vielen Dateien über das Netzwerk kann das eine Minute dauern…'))
             self.size_note.set_visible(True)
         self.btn_recalc.set_sensitive(False)
 
@@ -1598,11 +1604,11 @@ class DetailsDialog:
                         pass
                     break
             if rc != 0 or not data:
-                self._show_size(self.s.get("size"), "Berechnung fehlgeschlagen: " + Job.error_of(lines)[:160])
+                self._show_size(self.s.get("size"), _('Berechnung fehlgeschlagen: ') + Job.error_of(lines)[:160])
                 return
             self.s["size"] = data
             when = data.get("measured", "")
-            self._show_size(data, f"Berechnet {fmt_when(dt.datetime.fromisoformat(when).timestamp())}"
+            self._show_size(data, _('Berechnet {0}').format(fmt_when(dt.datetime.fromisoformat(when).timestamp()))
                             if when else "")
         args = ["size", self.s["name"], "--json"] + (["--refresh"] if refresh else [])
         self.size_job = Job(args, None, done)
@@ -1615,7 +1621,7 @@ class DetailsDialog:
 
         def done(rc, lines):
             if rc == 0:
-                self.toasts.add_toast(Adw.Toast(title="Kommentar gespeichert"))
+                self.toasts.add_toast(Adw.Toast(title=_('Kommentar gespeichert')))
                 self.win.refresh(quiet=True)
             else:
                 self.toasts.add_toast(Adw.Toast(title=Job.error_of(lines)[:120]))
@@ -1628,14 +1634,14 @@ class SettingsDialog:
         self.cfg = ns.load_config()
         self.existed = os.path.exists(ns.CONFIG_PATH)
         t = self.cfg["target"]
-        self.d = Adw.PreferencesDialog(title="Einstellungen", search_enabled=False)
+        self.d = Adw.PreferencesDialog(title=_('Einstellungen'), search_enabled=False)
         self.d.set_content_height(680)
         self.d.add(self._page_target(t))
         self.d.add(self._page_storage(t))
         self.p_sched = self._page_schedule()
         self.d.add(self.p_sched)
         self.d.add(self._page_files())
-        self.d.connect("closed", lambda *_: self.save(final=True))
+        self.d.connect("closed", lambda *_x: self.save(final=True))
         self.sync_rescue()
         self.sync_type()
 
@@ -1644,41 +1650,38 @@ class SettingsDialog:
 
     # ---- Seiten
     def _page_target(self, t):
-        p = Adw.PreferencesPage(title="Ziel", icon_name="folder-remote-symbolic")
-        g = Adw.PreferencesGroup(title="Dieser Rechner")
-        self.e_name = Adw.EntryRow(title="Name im Backup", text=self.cfg["machine_name"])
+        p = Adw.PreferencesPage(title=_('Ziel'), icon_name="folder-remote-symbolic")
+        g = Adw.PreferencesGroup(title=_('Dieser Rechner'))
+        self.e_name = Adw.EntryRow(title=_('Name im Backup'), text=self.cfg["machine_name"])
         g.add(self.e_name)
-        self.sw_rescue = Adw.SwitchRow(title="Rettungssystem – nur wiederherstellen",
-                                       subtitle="Für den USB-Stick: Hier wird nie gesichert. Die Snapshots des "
-                                                "Rechners werden nur gelesen und auf seine Festplatte zurückgespielt.",
+        self.sw_rescue = Adw.SwitchRow(title=_('Rettungssystem – nur wiederherstellen'),
+                                       subtitle=_('Für den USB-Stick: Hier wird nie gesichert. Die Snapshots des Rechners werden nur gelesen und auf seine Festplatte zurückgespielt.'),
                                        active=bool(self.cfg.get("rescue_mode")))
         g.add(self.sw_rescue)
         self.name_hint = Gtk.Label(wrap=True, xalign=0, css_classes=["dim-label", "caption"], margin_top=6,
-                                   label="Im Rettungssystem muss der Name genau so lauten wie beim gesicherten "
-                                         "Rechner (z.B. meinrechner) – sonst findet netshift dessen Sicherung nicht.")
+                                   label=_('Im Rettungssystem muss der Name genau so lauten wie beim gesicherten Rechner (z.B. meinrechner) – sonst findet netshift dessen Sicherung nicht.'))
         g.add(self.name_hint)
-        self.sw_rescue.connect("notify::active", lambda *_: self.sync_rescue())
+        self.sw_rescue.connect("notify::active", lambda *_x: self.sync_rescue())
         p.add(g)
 
-        g = Adw.PreferencesGroup(title="Sicherungsziel")
-        self.c_type = Adw.ComboRow(title="Art", model=Gtk.StringList.new([l for _, l in TYPES]))
-        self.c_type.set_selected([k for k, _ in TYPES].index(t["type"]))
-        self.c_type.connect("notify::selected", lambda *_: self.sync_type())
+        g = Adw.PreferencesGroup(title=_('Sicherungsziel'))
+        self.c_type = Adw.ComboRow(title=_('Art'), model=Gtk.StringList.new([l for _x, l in TYPES]))
+        self.c_type.set_selected([k for k, _x in TYPES].index(t["type"]))
+        self.c_type.connect("notify::selected", lambda *_x: self.sync_type())
         g.add(self.c_type)
         p.add(g)
 
         cred = ns.read_smb_credentials()
-        self.g_smb = Adw.PreferencesGroup(title="SMB / Windows-Freigabe / NAS",
-                                          description="z.B. smb://192.168.1.10/Backup → Server 192.168.1.10, "
-                                                      "Freigabe Backup")
-        self.e_smb_server = Adw.EntryRow(title="Server (Name oder IP)", text=t["server"])
-        self.e_share = Adw.EntryRow(title="Freigabe", text=t["share"].strip("/"))
-        self.e_user = Adw.EntryRow(title="Benutzer (leer = Gast)", text=cred.get("username", ""))
-        self.e_pass = Adw.PasswordEntryRow(title="Passwort" + (" (gespeichert – leer lassen zum Behalten)"
+        self.g_smb = Adw.PreferencesGroup(title=_('SMB / Windows-Freigabe / NAS'),
+                                          description=_('z.B. smb://192.168.1.10/Backup → Server 192.168.1.10, Freigabe Backup'))
+        self.e_smb_server = Adw.EntryRow(title=_('Server (Name oder IP)'), text=t["server"])
+        self.e_share = Adw.EntryRow(title=_('Freigabe'), text=t["share"].strip("/"))
+        self.e_user = Adw.EntryRow(title=_('Benutzer (leer = Gast)'), text=cred.get("username", ""))
+        self.e_pass = Adw.PasswordEntryRow(title=_('Passwort') + (_(' (gespeichert – leer lassen zum Behalten)')
                                                                 if cred.get("password") else ""))
-        self.e_domain = Adw.EntryRow(title="Domäne / Arbeitsgruppe (optional)", text=cred.get("domain", ""))
+        self.e_domain = Adw.EntryRow(title=_('Domäne / Arbeitsgruppe (optional)'), text=cred.get("domain", ""))
         vers = SMB_VERSIONS if t["smb_version"] in SMB_VERSIONS else SMB_VERSIONS + [t["smb_version"]]
-        self.c_smbver = Adw.ComboRow(title="SMB-Version", model=Gtk.StringList.new(vers))
+        self.c_smbver = Adw.ComboRow(title=_("SMB-Version"), model=Gtk.StringList.new(vers))
         self.c_smbver.set_selected(vers.index(t["smb_version"]) if t["smb_version"] in vers else 1)
         self._smb_versions = vers
         for w in (self.e_smb_server, self.e_share, self.e_user, self.e_pass, self.e_domain, self.c_smbver):
@@ -1686,92 +1689,89 @@ class SettingsDialog:
         p.add(self.g_smb)
 
         self.g_nfs = Adw.PreferencesGroup(title="NFS")
-        self.e_nfs_server = Adw.EntryRow(title="Server (Name oder IP)", text=t["server"])
-        self.e_export = Adw.EntryRow(title="Export, z.B. /volume1/backup", text=t["export"])
+        self.e_nfs_server = Adw.EntryRow(title=_('Server (Name oder IP)'), text=t["server"])
+        self.e_export = Adw.EntryRow(title=_('Export, z.B. /volume1/backup'), text=t["export"])
         self.g_nfs.add(self.e_nfs_server)
         self.g_nfs.add(self.e_export)
         p.add(self.g_nfs)
 
-        self.g_ssh = Adw.PreferencesGroup(title="SSH", description="Linux-Server oder NAS mit rsync")
-        self.e_ssh_server = Adw.EntryRow(title="Server (Name oder IP)", text=t["server"])
-        self.e_ssh_user = Adw.EntryRow(title="Benutzer", text=t["ssh_user"])
+        self.g_ssh = Adw.PreferencesGroup(title="SSH", description=_('Linux-Server oder NAS mit rsync'))
+        self.e_ssh_server = Adw.EntryRow(title=_('Server (Name oder IP)'), text=t["server"])
+        self.e_ssh_user = Adw.EntryRow(title=_('Benutzer'), text=t["ssh_user"])
         self.s_port = Adw.SpinRow.new_with_range(1, 65535, 1)
-        self.s_port.set_title("Port")
+        self.s_port.set_title(_('Port'))
         self.s_port.set_value(int(t["ssh_port"] or 22))
-        self.e_ssh_path = Adw.EntryRow(title="Pfad auf dem Server", text=t["ssh_path"])
-        self.e_ssh_key = Adw.EntryRow(title="Schlüsseldatei", text=t["ssh_key"])
-        self.sw_fake = Adw.SwitchRow(title="Benutzer ist nicht root",
-                                     subtitle="Besitzer und Rechte per --fake-super speichern",
+        self.e_ssh_path = Adw.EntryRow(title=_('Pfad auf dem Server'), text=t["ssh_path"])
+        self.e_ssh_key = Adw.EntryRow(title=_('Schlüsseldatei'), text=t["ssh_key"])
+        self.sw_fake = Adw.SwitchRow(title=_('Benutzer ist nicht root'),
+                                     subtitle=_('Besitzer und Rechte per --fake-super speichern'),
                                      active=t["ssh_fake_super"])
-        btn = Gtk.Button(label="Anzeigen…", valign=Gtk.Align.CENTER)
-        btn.connect("clicked", lambda *_: self.show_ssh_key())
-        kr = Adw.ActionRow(title="SSH-Schlüssel", subtitle="Erzeugen und auf dem Server hinterlegen")
+        btn = Gtk.Button(label=_('Anzeigen…'), valign=Gtk.Align.CENTER)
+        btn.connect("clicked", lambda *_x: self.show_ssh_key())
+        kr = Adw.ActionRow(title=_('SSH-Schlüssel'), subtitle=_('Erzeugen und auf dem Server hinterlegen'))
         kr.add_suffix(btn)
         for w in (self.e_ssh_server, self.e_ssh_user, self.s_port, self.e_ssh_path, self.e_ssh_key,
                   self.sw_fake, kr):
             self.g_ssh.add(w)
         p.add(self.g_ssh)
 
-        self.g_local = Adw.PreferencesGroup(title="Lokales Laufwerk",
-                                            description="Ordner, Gerät (/dev/sdb1) oder UUID=… – UUID ist am "
-                                                        "zuverlässigsten bei USB-Laufwerken")
-        self.e_path = Adw.EntryRow(title="Pfad, Gerät oder UUID", text=t["path"])
+        self.g_local = Adw.PreferencesGroup(title=_('Lokales Laufwerk'),
+                                            description=_('Ordner, Gerät (/dev/sdb1) oder UUID=… – UUID ist am zuverlässigsten bei USB-Laufwerken'))
+        self.e_path = Adw.EntryRow(title=_('Pfad, Gerät oder UUID'), text=t["path"])
         self.e_path.add_suffix(device_menu_button(
             lambda d: self.e_path.set_text(f"UUID={d['uuid']}" if d.get("uuid") else d["path"])))
-        self.e_path.add_suffix(icon_button("folder-open-symbolic", "Ordner wählen",
-                                           lambda: pick_folder(self.d, "Zielordner", self.e_path.set_text)))
+        self.e_path.add_suffix(icon_button("folder-open-symbolic", _('Ordner wählen'),
+                                           lambda: pick_folder(self.d, _('Zielordner'), self.e_path.set_text)))
         self.g_local.add(self.e_path)
         p.add(self.g_local)
 
         g = Adw.PreferencesGroup()
-        self.test_row = Adw.ActionRow(title="Verbindung testen", subtitle="Speichert und prüft das Ziel")
+        self.test_row = Adw.ActionRow(title=_('Verbindung testen'), subtitle=_('Speichert und prüft das Ziel'))
         self.test_icon = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         self.test_icon.add_named(Gtk.Image(icon_name="network-transmit-receive-symbolic"), "idle")
         self.test_icon.add_named(Gtk.Spinner(spinning=True), "busy")
         self.test_icon.add_named(Gtk.Image(icon_name="emblem-ok-symbolic", css_classes=["success"]), "ok")
         self.test_icon.add_named(Gtk.Image(icon_name="dialog-error-symbolic", css_classes=["error"]), "error")
         self.test_row.add_prefix(self.test_icon)
-        tb = Gtk.Button(label="Testen", valign=Gtk.Align.CENTER, css_classes=["suggested-action"])
-        tb.connect("clicked", lambda *_: self.test())
+        tb = Gtk.Button(label=_('Testen'), valign=Gtk.Align.CENTER, css_classes=["suggested-action"])
+        tb.connect("clicked", lambda *_x: self.test())
         self.test_row.add_suffix(tb)
         g.add(self.test_row)
         p.add(g)
         return p
 
     def _page_storage(self, t):
-        p = Adw.PreferencesPage(title="Speicher", icon_name="drive-harddisk-symbolic")
-        g = Adw.PreferencesGroup(title="Ablage",
-                                 description="„Automatisch“ nutzt auf SMB, NFS, FAT und NTFS einen ext4-Image-"
-                                             "Container – nur so bleiben Besitzer, Rechte und Hardlinks erhalten.")
-        self.c_cont = Adw.ComboRow(title="Speicherformat", model=Gtk.StringList.new([l for _, l in CONTAINERS]))
-        self.c_cont.set_selected([k for k, _ in CONTAINERS].index(t.get("container", "auto")))
+        p = Adw.PreferencesPage(title=_('Speicher'), icon_name="drive-harddisk-symbolic")
+        g = Adw.PreferencesGroup(title=_('Ablage'),
+                                 description=_('„Automatisch“ nutzt auf SMB, NFS, FAT und NTFS einen ext4-Image-Container – nur so bleiben Besitzer, Rechte und Hardlinks erhalten.'))
+        self.c_cont = Adw.ComboRow(title=_('Speicherformat'), model=Gtk.StringList.new([l for _x, l in CONTAINERS]))
+        self.c_cont.set_selected([k for k, _x in CONTAINERS].index(t.get("container", "auto")))
         self.s_size = Adw.SpinRow.new_with_range(5, 100000, 10)
-        self.s_size.set_title("Maximale Image-Größe (GiB)")
-        self.s_size.set_subtitle("Belegt nur so viel, wie tatsächlich gesichert ist")
+        self.s_size.set_title(_('Maximale Image-Größe (GiB)'))
+        self.s_size.set_subtitle(_('Belegt nur so viel, wie tatsächlich gesichert ist'))
         self.s_size.set_value(int(t["image_size_gb"]))
         g.add(self.c_cont)
         g.add(self.s_size)
         p.add(g)
-        g = Adw.PreferencesGroup(title="Verschlüsselung")
-        self.ex_enc = Adw.ExpanderRow(title="Image verschlüsseln (LUKS2)",
-                                      subtitle="Schützt die Sicherung, falls jemand Zugriff auf das NAS hat",
+        g = Adw.PreferencesGroup(title=_('Verschlüsselung'))
+        self.ex_enc = Adw.ExpanderRow(title=_('Image verschlüsseln (LUKS2)'),
+                                      subtitle=_('Schützt die Sicherung, falls jemand Zugriff auf das NAS hat'),
                                       show_enable_switch=True, enable_expansion=bool(t["encrypt"]))
-        self.e_key = Adw.EntryRow(title="Schlüsseldatei", text=t["key_file"])
+        self.e_key = Adw.EntryRow(title=_('Schlüsseldatei'), text=t["key_file"])
         self.ex_enc.add_row(self.e_key)
-        warn = Adw.ActionRow(title="Schlüsseldatei unbedingt zusätzlich sichern",
-                             subtitle="Ohne sie ist keine Wiederherstellung vom Live-USB möglich")
+        warn = Adw.ActionRow(title=_('Schlüsseldatei unbedingt zusätzlich sichern'),
+                             subtitle=_('Ohne sie ist keine Wiederherstellung vom Live-USB möglich'))
         warn.add_prefix(Gtk.Image(icon_name="dialog-warning-symbolic", css_classes=["warning"]))
         self.ex_enc.add_row(warn)
         g.add(self.ex_enc)
         p.add(g)
-        g = Adw.PreferencesGroup(title="Erweitert")
-        self.e_mopts = Adw.EntryRow(title="Zusätzliche Mount-Optionen", text=t["mount_options"])
+        g = Adw.PreferencesGroup(title=_('Erweitert'))
+        self.e_mopts = Adw.EntryRow(title=_('Zusätzliche Mount-Optionen'), text=t["mount_options"])
         self.s_minfree = Adw.SpinRow.new_with_range(0, 10000, 1)
-        self.s_minfree.set_title("Mindestens frei lassen (GiB)")
+        self.s_minfree.set_title(_('Mindestens frei lassen (GiB)'))
         self.s_minfree.set_value(float(self.cfg["min_free_gb"]))
-        self.sw_cleanup = Adw.SwitchRow(title="Bei Platzmangel automatisch aufräumen",
-                                        subtitle="Löscht die ältesten automatischen Snapshots – nur wenn es "
-                                                 "wirklich hilft. Manuelle Snapshots bleiben immer erhalten.",
+        self.sw_cleanup = Adw.SwitchRow(title=_('Bei Platzmangel automatisch aufräumen'),
+                                        subtitle=_('Löscht die ältesten automatischen Snapshots – nur wenn es wirklich hilft. Manuelle Snapshots bleiben immer erhalten.'),
                                         active=bool(self.cfg.get("auto_cleanup", True)))
         g.add(self.sw_cleanup)
         g.add(self.e_mopts)
@@ -1780,17 +1780,16 @@ class SettingsDialog:
         return p
 
     def _page_schedule(self):
-        p = Adw.PreferencesPage(title="Zeitplan", icon_name="alarm-symbolic")
-        g = Adw.PreferencesGroup(title="Automatische Snapshots",
-                                 description="Verpasste Termine werden nachgeholt, sobald das Ziel erreichbar ist. "
-                                             "Manuelle Snapshots werden nie automatisch gelöscht.")
+        p = Adw.PreferencesPage(title=_('Zeitplan'), icon_name="alarm-symbolic")
+        g = Adw.PreferencesGroup(title=_('Automatische Snapshots'),
+                                 description=_('Verpasste Termine werden nachgeholt, sobald das Ziel erreichbar ist. Manuelle Snapshots werden nie automatisch gelöscht.'))
         self.sched = {}
         for key, label, icon in LEVELS:
             s = self.cfg["schedule"][key]
             ex = Adw.ExpanderRow(title=label, show_enable_switch=True, enable_expansion=s["enabled"])
             ex.add_prefix(Gtk.Image(icon_name=icon))
             sp = Adw.SpinRow.new_with_range(1, 99, 1)
-            sp.set_title("Anzahl behalten")
+            sp.set_title(_('Anzahl behalten'))
             sp.set_value(s["keep"])
             ex.add_row(sp)
             self._keep_subtitle(ex, sp)
@@ -1800,36 +1799,32 @@ class SettingsDialog:
             self.sched[key] = (ex, sp)
         p.add(g)
         ph = self.cfg["pacman_hook"]
-        g = Adw.PreferencesGroup(title="Software-Updates",
-                                 description="Snapshot vor jeder Installation, Aktualisierung oder Entfernung "
-                                             "mit pacman oder pamac")
-        self.ex_ph = Adw.ExpanderRow(title="Snapshot vor Updates", show_enable_switch=True,
+        g = Adw.PreferencesGroup(title=_('Software-Updates'),
+                                 description=_('Snapshot vor jeder Installation, Aktualisierung oder Entfernung mit pacman oder pamac'))
+        self.ex_ph = Adw.ExpanderRow(title=_('Snapshot vor Updates'), show_enable_switch=True,
                                      enable_expansion=ph["enabled"])
         self.ex_ph.add_prefix(Gtk.Image(icon_name="system-software-install-symbolic"))
         self.s_phkeep = Adw.SpinRow.new_with_range(1, 99, 1)
-        self.s_phkeep.set_title("Anzahl behalten")
+        self.s_phkeep.set_title(_('Anzahl behalten'))
         self.s_phkeep.set_value(ph["keep"])
         self.s_phint = Adw.SpinRow.new_with_range(0, 1440, 5)
-        self.s_phint.set_title("Mindestabstand (Minuten)")
-        self.s_phint.set_subtitle("Mehrere Updates kurz hintereinander lösen nur einen Snapshot aus")
+        self.s_phint.set_title(_('Mindestabstand (Minuten)'))
+        self.s_phint.set_subtitle(_('Mehrere Updates kurz hintereinander lösen nur einen Snapshot aus'))
         self.s_phint.set_value(ph["min_interval_minutes"])
-        self.sw_phabort = Adw.SwitchRow(title="Update abbrechen, wenn der Snapshot fehlschlägt",
-                                        subtitle="Z.B. wenn das NAS nicht erreichbar ist", active=ph["abort_on_fail"])
+        self.sw_phabort = Adw.SwitchRow(title=_('Update abbrechen, wenn der Snapshot fehlschlägt'),
+                                        subtitle=_('Z.B. wenn das NAS nicht erreichbar ist'), active=ph["abort_on_fail"])
         for w in (self.s_phkeep, self.s_phint, self.sw_phabort):
             self.ex_ph.add_row(w)
         g.add(self.ex_ph)
         p.add(g)
         nt = self.cfg.get("notify") or {}
-        g = Adw.PreferencesGroup(title="Benachrichtigungen",
-                                 description="Meldung auf dem Desktop, wenn eine automatische Sicherung "
-                                             "fehlschlägt oder zu lange keine erfolgreiche Sicherung lief. Ist das "
-                                             "NAS nur nicht erreichbar (z.B. unterwegs), wird erst nach der "
-                                             "eingestellten Zeit gewarnt.")
-        self.ex_notify = Adw.ExpanderRow(title="Bei Problemen benachrichtigen", show_enable_switch=True,
+        g = Adw.PreferencesGroup(title=_('Benachrichtigungen'),
+                                 description=_('Meldung auf dem Desktop, wenn eine automatische Sicherung fehlschlägt oder zu lange keine erfolgreiche Sicherung lief. Ist das NAS nur nicht erreichbar (z.B. unterwegs), wird erst nach der eingestellten Zeit gewarnt.'))
+        self.ex_notify = Adw.ExpanderRow(title=_('Bei Problemen benachrichtigen'), show_enable_switch=True,
                                          enable_expansion=bool(nt.get("enabled", True)))
         self.ex_notify.add_prefix(Gtk.Image(icon_name="preferences-system-notifications-symbolic"))
         self.s_overdue = Adw.SpinRow.new_with_range(1, 60, 1)
-        self.s_overdue.set_title("Warnen, wenn die letzte Sicherung älter ist als (Tage)")
+        self.s_overdue.set_title(_('Warnen, wenn die letzte Sicherung älter ist als (Tage)'))
         self.s_overdue.set_value(float(nt.get("overdue_days", 3) or 3))
         self.ex_notify.add_row(self.s_overdue)
         g.add(self.ex_notify)
@@ -1838,33 +1833,32 @@ class SettingsDialog:
 
     @staticmethod
     def _keep_subtitle(ex, sp):
-        ex.set_subtitle(f"Die letzten {int(sp.get_value())} behalten" if ex.get_enable_expansion() else "Aus")
+        ex.set_subtitle(_('Die letzten {0} behalten').format(int(sp.get_value())) if ex.get_enable_expansion() else _('Aus'))
 
     def _page_files(self):
-        p = Adw.PreferencesPage(title="Ausschlüsse", icon_name="edit-clear-all-symbolic")
-        g = Adw.PreferencesGroup(title="Umfang")
-        self.sw_home = Adw.SwitchRow(title="Home-Verzeichnisse mitsichern",
-                                     subtitle="Achtung: Eine Wiederherstellung setzt dann auch persönliche "
-                                              "Dateien zurück", active=self.cfg["include_home"])
-        self.sw_cache = Adw.SwitchRow(title="Paketcache auslassen", subtitle="/var/cache/pacman/pkg",
+        p = Adw.PreferencesPage(title=_('Ausschlüsse'), icon_name="edit-clear-all-symbolic")
+        g = Adw.PreferencesGroup(title=_('Umfang'))
+        self.sw_home = Adw.SwitchRow(title=_('Home-Verzeichnisse mitsichern'),
+                                     subtitle=_('Achtung: Eine Wiederherstellung setzt dann auch persönliche Dateien zurück'), active=self.cfg["include_home"])
+        self.sw_cache = Adw.SwitchRow(title=_('Paketcache auslassen'), subtitle="/var/cache/pacman/pkg",
                                       active=self.cfg["exclude_pacman_cache"])
         g.add(self.sw_home)
         g.add(self.sw_cache)
         p.add(g)
-        self.g_ex = Adw.PreferencesGroup(title="Eigene Ausschlüsse",
-                                         description="rsync-Muster, z.B. /opt/spiele/* oder /home/*/Videos/*")
-        self.e_add = Adw.EntryRow(title="Muster hinzufügen", show_apply_button=True)
-        self.e_add.connect("apply", lambda *_: self._add_ex(self.e_add.get_text()))
-        self.e_add.connect("entry-activated", lambda *_: self._add_ex(self.e_add.get_text()))
+        self.g_ex = Adw.PreferencesGroup(title=_('Eigene Ausschlüsse'),
+                                         description=_('rsync-Muster, z.B. /opt/spiele/* oder /home/*/Videos/*'))
+        self.e_add = Adw.EntryRow(title=_('Muster hinzufügen'), show_apply_button=True)
+        self.e_add.connect("apply", lambda *_x: self._add_ex(self.e_add.get_text()))
+        self.e_add.connect("entry-activated", lambda *_x: self._add_ex(self.e_add.get_text()))
         self.g_ex.add(self.e_add)
         self.ex_rows = []
         for e in self.cfg["exclude"]:
             self._add_ex(e)
         p.add(self.g_ex)
-        g = Adw.PreferencesGroup(title="Immer ausgeschlossen")
-        r = Adw.ActionRow(title="Systemverzeichnisse", subtitle=", ".join(ns.FORCED_EXCLUDES), subtitle_lines=3)
-        r2 = Adw.ActionRow(title="Eingehängte Netzwerk- und Temp-Dateisysteme",
-                           subtitle="Werden beim Erstellen automatisch erkannt (Mountpunkt bleibt erhalten)")
+        g = Adw.PreferencesGroup(title=_('Immer ausgeschlossen'))
+        r = Adw.ActionRow(title=_('Systemverzeichnisse'), subtitle=", ".join(ns.FORCED_EXCLUDES), subtitle_lines=3)
+        r2 = Adw.ActionRow(title=_('Eingehängte Netzwerk- und Temp-Dateisysteme'),
+                           subtitle=_('Werden beim Erstellen automatisch erkannt (Mountpunkt bleibt erhalten)'))
         g.add(r)
         g.add(r2)
         p.add(g)
@@ -1876,7 +1870,7 @@ class SettingsDialog:
             return
         row = Adw.ActionRow(title=GLib.markup_escape_text(pattern), css_classes=["monospace"])
         entry = [pattern, row]
-        row.add_suffix(icon_button("user-trash-symbolic", "Entfernen",
+        row.add_suffix(icon_button("user-trash-symbolic", _('Entfernen'),
                                    lambda: (self.ex_rows.remove(entry), self.g_ex.remove(row))))
         self.g_ex.add(row)
         self.ex_rows.append(entry)
@@ -1959,7 +1953,7 @@ class SettingsDialog:
             self.win.snaps = []
             self.win.refresh()
             if not complete:
-                self.win.toast("Sicherungsziel ist noch unvollständig", 4)
+                self.win.toast(_('Sicherungsziel ist noch unvollständig'), 4)
 
     def test(self):
         try:
@@ -1969,13 +1963,13 @@ class SettingsDialog:
             return
         self.save()
         self.test_icon.set_visible_child_name("busy")
-        self.test_row.set_subtitle("Verbinde…")
+        self.test_row.set_subtitle(_('Verbinde…'))
 
         def done(rc, lines):
             if rc == 0:
-                msg = next((l.strip() for l in lines if l.startswith("Verbindung OK")), "Verbindung OK")
+                msg = Job.result_of(lines)
                 self.test_icon.set_visible_child_name("ok")
-                self.test_row.set_subtitle(GLib.markup_escape_text(msg.replace("Verbindung OK: ", "")))
+                self.test_row.set_subtitle(GLib.markup_escape_text(msg))
             else:
                 self.test_icon.set_visible_child_name("error")
                 self.test_row.set_subtitle(GLib.markup_escape_text(Job.error_of(lines)[:300]))
@@ -1995,17 +1989,16 @@ class SettingsDialog:
             return
         host = f"{self.e_ssh_user.get_text().strip()}@{self.e_ssh_server.get_text().strip()}"
         cmd = f"sudo ssh-copy-id -i {key}.pub -p {int(self.s_port.get_value())} {host}"
-        d = Adw.AlertDialog(heading="SSH-Schlüssel hinterlegen",
-                            body="Einmalig im Terminal ausführen (fragt das Server-Passwort ab) – oder den "
-                                 "Schlüssel auf dem Server in ~/.ssh/authorized_keys eintragen.")
+        d = Adw.AlertDialog(heading=_('SSH-Schlüssel hinterlegen'),
+                            body=_('Einmalig im Terminal ausführen (fragt das Server-Passwort ab) – oder den Schlüssel auf dem Server in ~/.ssh/authorized_keys eintragen.'))
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         for text in (cmd, pub):
             lbl = Gtk.Label(label=text, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.CHAR,
                             xalign=0, css_classes=["mono", "card"], margin_top=2)
             box.append(lbl)
         d.set_extra_child(box)
-        d.add_response("copy", "Befehl kopieren")
-        d.add_response("ok", "Fertig")
+        d.add_response("copy", _('Befehl kopieren'))
+        d.add_response("ok", _('Fertig'))
         d.set_default_response("ok")
         d.connect("response", lambda _d, r: r == "copy" and self.d.get_clipboard().set(cmd))
         d.present(self.d)
@@ -2018,7 +2011,7 @@ class App(Adw.Application):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.connect("activate", self.on_activate)
 
-    def on_activate(self, *_):
+    def on_activate(self, *_x):
         sm = Adw.StyleManager.get_default()
         sm.set_color_scheme({"dark": Adw.ColorScheme.FORCE_DARK, "light": Adw.ColorScheme.FORCE_LIGHT}
                             .get(COLOR_SCHEME, Adw.ColorScheme.DEFAULT))

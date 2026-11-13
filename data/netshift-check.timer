@@ -1,5 +1,5 @@
 [Unit]
-Description=netshift: stündlich prüfen, ob ein Snapshot fällig ist
+Description=netshift: check hourly whether a snapshot is due
 
 [Timer]
 OnCalendar=hourly

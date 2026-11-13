@@ -1,7 +1,7 @@
 # Maintainer: riccen-arch
 # PKGBUILD für das AUR – lädt die getaggte Version von GitHub.
 pkgname=netshift
-pkgver=1.1.5
+pkgver=1.1.6
 pkgrel=1
 pkgdesc="System-Snapshots wie Timeshift (rsync) – auch auf SMB-, NFS- und SSH-Netzwerkziele"
 arch=('any')

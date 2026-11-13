@@ -1,5 +1,5 @@
 [Unit]
-Description=netshift: geplante System-Snapshots
+Description=netshift: scheduled system snapshots
 Wants=network-online.target
 After=network-online.target
 

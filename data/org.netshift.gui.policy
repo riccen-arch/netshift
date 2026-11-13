@@ -3,8 +3,10 @@
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
   <action id="org.netshift.gui">
-    <description>netshift System-Snapshots verwalten</description>
-    <message>Für System-Snapshots werden Administratorrechte benötigt.</message>
+    <description>Manage netshift system snapshots</description>
+    <description xml:lang="de">netshift System-Snapshots verwalten</description>
+    <message>Administrator rights are required for system snapshots.</message>
+    <message xml:lang="de">Für System-Snapshots werden Administratorrechte benötigt.</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -14,8 +16,10 @@
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
   <action id="org.netshift.gui.classic">
-    <description>netshift System-Snapshots verwalten (klassische Oberfläche)</description>
-    <message>Für System-Snapshots werden Administratorrechte benötigt.</message>
+    <description>Manage netshift system snapshots (classic interface)</description>
+    <description xml:lang="de">netshift System-Snapshots verwalten (klassische Oberfläche)</description>
+    <message>Administrator rights are required for system snapshots.</message>
+    <message xml:lang="de">Für System-Snapshots werden Administratorrechte benötigt.</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

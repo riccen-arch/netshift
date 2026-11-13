@@ -1,0 +1,3109 @@
+# netshift – Übersetzung: en
+# Ausgangssprache ist Deutsch (msgid).
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+#: netshift.py:122 netshift-gtk.py:75
+msgid "Manuell"
+msgstr "Manual"
+
+#: netshift.py:122 netshift-gtk.py:75
+msgid "Boot"
+msgstr "Boot"
+
+#: netshift.py:122 netshift.py:2157 netshift-gtk.py:71 netshift-gtk.py:75
+msgid "Stündlich"
+msgstr "Hourly"
+
+#: netshift.py:122 netshift.py:2157 netshift-gtk.py:72 netshift-gtk.py:76
+msgid "Täglich"
+msgstr "Daily"
+
+#: netshift.py:123 netshift.py:2158 netshift-gtk.py:73 netshift-gtk.py:76
+msgid "Wöchentlich"
+msgstr "Weekly"
+
+#: netshift.py:123 netshift.py:2158 netshift-gtk.py:74 netshift-gtk.py:76
+msgid "Monatlich"
+msgstr "Monthly"
+
+#: netshift.py:123
+msgid "Vor Wiederherstellung"
+msgstr "Before restore"
+
+#: netshift.py:1546
+msgid "Aktualisiere GRUB-Konfiguration im wiederhergestellten System…"
+msgstr "Updating GRUB configuration in the restored system…"
+
+#: netshift.py:1625
+msgid " (UNVOLLSTÄNDIG)"
+msgstr " (INCOMPLETE)"
+
+#: netshift.py:1627
+msgid " (Warnungen)"
+msgstr " (warnings)"
+
+#: netshift.py:2003 netshift.py:2005
+msgid "aus"
+msgstr "off"
+
+#: netshift.py:2120
+msgid "=== netshift Einrichtung ===  (Enter übernimmt den Vorgabewert)"
+msgstr "=== netshift setup ===  (Enter keeps the default value)"
+
+#: netshift.py:2121
+msgid "Name dieses Rechners im Backup"
+msgstr "Name of this computer in the backup"
+
+#: netshift.py:2174 netshift-gui.py:946
+msgid "Teste Verbindung…"
+msgstr "Testing connection…"
+
+#: netshift.py:381
+#, python-brace-format
+msgid "Das Sicherungsziel {0} ist nicht erreichbar. Ist das NAS eingeschaltet und der Rechner mit dem Heimnetz verbunden?"
+msgstr "The backup target {0} is not reachable. Is the NAS switched on and is this computer connected to the home network?"
+
+#: netshift.py:504
+msgid "%d.%m. %H:%M"
+msgstr "%m/%d %H:%M"
+
+#: netshift.py:505
+msgid "Letzte automatische Sicherung fehlgeschlagen"
+msgstr "Last automatic backup failed"
+
+#: netshift.py:506
+msgid "Letzte Sicherung fehlgeschlagen"
+msgstr "Last backup failed"
+
+#: netshift.py:595
+msgid "netshift: Sicherung läuft wieder"
+msgstr "netshift: backups are working again"
+
+#: netshift.py:1062
+msgid "Keine Snapshots vorhanden."
+msgstr "No snapshots available."
+
+#: netshift.py:1227
+msgid "Rettungssystem: Auf diesem System werden keine Snapshots erstellt – sonst würde ein Abbild des Rettungssystems zwischen den Sicherungen des eigentlichen Rechners landen."
+msgstr "Rescue system: no snapshots are created on this system – otherwise an image of the rescue system would end up among the backups of the actual computer."
+
+#: netshift.py:1259
+msgid "Der angefangene Snapshot wird beim nächsten Mal fortgesetzt."
+msgstr "The interrupted snapshot will be resumed next time."
+
+#: netshift.py:1271
+msgid "Einige Dateien konnten nicht gesichert werden (rsync 23) – Details siehe Ausgabe oben."
+msgstr "Some files could not be backed up (rsync 23) – see the output above for details."
+
+#: netshift.py:1329
+msgid "Platzmangel: Bei SSH-Zielen werden Snapshots nicht automatisch gelöscht."
+msgstr "Low space: snapshots are not deleted automatically on SSH targets."
+
+#: netshift.py:1434
+msgid "Falsches Passwort – bitte erneut versuchen."
+msgstr "Wrong password – please try again."
+
+#: netshift.py:1464
+msgid "Entsperren fehlgeschlagen."
+msgstr "Unlocking failed."
+
+#: netshift.py:1507
+msgid "Btrfs erkannt – Subvolume '@' als Wurzel eingebunden."
+msgstr "Btrfs detected – subvolume '@' mounted as root."
+
+#: netshift.py:1541
+msgid "Einige Dateien konnten nicht wiederhergestellt werden (rsync 23)."
+msgstr "Some files could not be restored (rsync 23)."
+
+#: netshift.py:1594
+msgid "Bestätigung nötig – mit --yes ausführen."
+msgstr "Confirmation required – run with --yes."
+
+#: netshift.py:1599 netshift.py:2002 netshift.py:1815
+msgid "ja"
+msgstr "yes"
+
+#: netshift.py:1664 netshift.py:1849
+msgid "Fertig."
+msgstr "Done."
+
+#: netshift.py:1744
+msgid "Snapshot             Nur dieser   Gesamtumfang   Dateien"
+msgstr "Snapshot             Only this    Total size     Files"
+
+#: netshift.py:1747
+msgid "'Nur dieser' = Platz, der beim Löschen frei wird. Unveränderte Dateien teilen sich die Snapshots per Hardlink."
+msgstr "'Only this' = space freed when deleting it. Unchanged files are shared between snapshots via hard links."
+
+#: netshift.py:1757
+msgid "Gespeichert."
+msgstr "Saved."
+
+#: netshift.py:1762
+msgid "Testmodus: --target angeben."
+msgstr "Test mode: specify --target."
+
+#: netshift.py:1767
+msgid "Rettungssystem: Bitte als Ziel die Systempartition des Rechners wählen (z.B. /dev/nvme0n1p2), nicht das laufende System."
+msgstr "Rescue system: please choose the system partition of the computer as target (e.g. /dev/nvme0n1p2), not the running system."
+
+#: netshift.py:1785 netshift-gui.py:532
+msgid "das LAUFENDE SYSTEM"
+msgstr "the RUNNING SYSTEM"
+
+#: netshift.py:1824
+msgid "Rettungssystem: Bitte mit --to einen Zielordner angeben (sonst landen die Dateien im Rettungssystem)."
+msgstr "Rescue system: please specify a target folder with --to (otherwise the files end up in the rescue system)."
+
+#: netshift.py:1956
+msgid "netshift: Sicherungsziel ausgehängt."
+msgstr "netshift: backup target unmounted."
+
+#: netshift.py:1961
+msgid "Ausgehängt."
+msgstr "Unmounted."
+
+#: netshift.py:1977
+msgid "Lokales Ziel – keine Netzwerkverbindung nötig."
+msgstr "Local target – no network connection needed."
+
+#: netshift.py:1987
+msgid "unbekannt"
+msgstr "unknown"
+
+#: netshift.py:2001
+msgid "Modus:         RETTUNGSSYSTEM (nur wiederherstellen, keine Snapshots)"
+msgstr "Mode:          RESCUE SYSTEM (restore only, no snapshots)"
+
+#: netshift.py:2088
+msgid ""
+"Öffentlicher Schlüssel:\n"
+msgstr ""
+"Public key:\n"
+
+#: netshift.py:2099
+msgid "Konfiguration gespeichert."
+msgstr "Configuration saved."
+
+#: netshift.py:2118
+msgid "'setup' ist interaktiv. Alternativ die GUI (netshift-gui) verwenden."
+msgstr "'setup' is interactive. Alternatively use the GUI (netshift-gui)."
+
+#: netshift.py:2125
+msgid "Server (Name oder IP, z.B. 192.168.1.10)"
+msgstr "Server (name or IP, e.g. 192.168.1.10)"
+
+#: netshift.py:2126
+msgid "Freigabe (z.B. backup oder backup/ordner)"
+msgstr "Share (e.g. backup or backup/folder)"
+
+#: netshift.py:2127
+msgid "SMB-Version (3.0, 2.1, 1.0)"
+msgstr "SMB version (3.0, 2.1, 1.0)"
+
+#: netshift.py:2129
+msgid "Benutzername (leer = Gast)"
+msgstr "User name (empty = guest)"
+
+#: netshift.py:2156
+msgid "Home-Verzeichnisse mitsichern? (j/n)"
+msgstr "Also back up home directories? (y/n)"
+
+#: netshift.py:2157
+msgid "Beim Booten"
+msgstr "At boot"
+
+#: netshift.py:2165
+msgid "Snapshot vor jedem pacman-Update? (j/n)"
+msgstr "Snapshot before every pacman update? (y/n)"
+
+#: netshift.py:2182
+msgid "System-Snapshots wie Timeshift – auch auf SMB-, NFS- und SSH-Ziele."
+msgstr "System snapshots like Timeshift – also to SMB, NFS and SSH targets."
+
+#: netshift.py:2183
+msgid "Alternative Konfigurationsdatei (z.B. im Live-System)"
+msgstr "Alternative configuration file (e.g. in a live system)"
+
+#: netshift.py:2185
+msgid "BEFEHL"
+msgstr "COMMAND"
+
+#: netshift.py:2187 netshift-gtk.py:799 netshift-gtk.py:469 netshift-gui.py:295
+msgid "Snapshot erstellen"
+msgstr "Create snapshot"
+
+#: netshift.py:2189
+msgid "Tags, z.B. O (manuell), D (täglich) … Standard: O"
+msgstr "Tags, e.g. O (manual), D (daily) … default: O"
+
+#: netshift.py:2190
+msgid "danach Aufbewahrungsregeln anwenden"
+msgstr "apply retention rules afterwards"
+
+#: netshift.py:2192
+msgid "auch erstellen, wenn die Sicherung von einem anders benannten Rechner stammt"
+msgstr "create even if the backup comes from a differently named computer"
+
+#: netshift.py:2194
+msgid "Snapshots anzeigen"
+msgstr "Show snapshots"
+
+#: netshift.py:2197
+msgid "Snapshot(s) löschen"
+msgstr "Delete snapshot(s)"
+
+#: netshift.py:2198 netshift.py:2216
+msgid "Name, Nummer aus 'list' oder 'latest'"
+msgstr "Name, number from 'list' or 'latest'"
+
+#: netshift.py:2201
+msgid "Verschlüsselte Partition (LUKS) entsperren"
+msgstr "Unlock encrypted partition (LUKS)"
+
+#: netshift.py:2203
+msgid "Passwort von der Standardeingabe lesen"
+msgstr "Read the password from standard input"
+
+#: netshift.py:2204
+msgid "Von netshift entsperrte Partition wieder sperren"
+msgstr "Lock a partition unlocked by netshift again"
+
+#: netshift.py:2206
+msgid "Belegten Speicherplatz von Snapshots anzeigen"
+msgstr "Show disk usage of snapshots"
+
+#: netshift.py:2207
+msgid "Name/Nummer (Standard: alle)"
+msgstr "Name/number (default: all)"
+
+#: netshift.py:2209
+msgid "neu berechnen statt zwischengespeichert"
+msgstr "recalculate instead of using the cached value"
+
+#: netshift.py:2210
+msgid "Kommentar/Tags eines Snapshots ändern"
+msgstr "Change comment/tags of a snapshot"
+
+#: netshift.py:2215
+msgid "System aus Snapshot wiederherstellen"
+msgstr "Restore the system from a snapshot"
+
+#: netshift.py:2217
+msgid "Ziel: / (Standard), Verzeichnis, /dev/sdXN oder UUID=… (z.B. vom Live-USB)"
+msgstr "Target: / (default), directory, /dev/sdXN or UUID=… (e.g. from a live USB)"
+
+#: netshift.py:2218
+msgid "nur anzeigen, was geändert würde"
+msgstr "only show what would change"
+
+#: netshift.py:2219
+msgid "/etc/fstab und /etc/crypttab des Ziels behalten"
+msgstr "keep /etc/fstab and /etc/crypttab of the target"
+
+#: netshift.py:2220
+msgid "vorher keinen Sicherheits-Snapshot erstellen"
+msgstr "do not create a safety snapshot first"
+
+#: netshift.py:2221
+msgid "nach Restore auf anderes Ziel grub-mkconfig im chroot"
+msgstr "run grub-mkconfig in a chroot after restoring to another target"
+
+#: netshift.py:2222
+msgid "danach sofort neu starten"
+msgstr "reboot immediately afterwards"
+
+#: netshift.py:2225
+msgid "Snapshot eines anders benannten Rechners auf das laufende System spielen"
+msgstr "restore a snapshot of a differently named computer onto the running system"
+
+#: netshift.py:2228
+msgid "Einzelne Dateien/Ordner aus Snapshot zurückholen"
+msgstr "Restore individual files/folders from a snapshot"
+
+#: netshift.py:2230
+msgid "absolute Pfade, z.B. /etc/pacman.conf"
+msgstr "absolute paths, e.g. /etc/pacman.conf"
+
+#: netshift.py:2231
+msgid "in dieses Verzeichnis statt an den Originalort"
+msgstr "into this directory instead of the original location"
+
+#: netshift.py:2232
+msgid "Ordner exakt angleichen (löscht neuere Dateien darin)"
+msgstr "make folders match exactly (deletes newer files in them)"
+
+#: netshift.py:2236
+msgid "Zeigt, was ein Restore ändern würde (Vorschau)"
+msgstr "Show what a restore would change (preview)"
+
+#: netshift.py:2241
+msgid "Geplante Snapshots (vom Timer aufgerufen)"
+msgstr "Scheduled snapshots (called by the timer)"
+
+#: netshift.py:2244
+msgid "(intern) vom pacman-Hook aufgerufen"
+msgstr "(internal) called by the pacman hook"
+
+#: netshift.py:2245
+msgid "Snapshots zum Durchsuchen einbinden"
+msgstr "Mount snapshots for browsing"
+
+#: netshift.py:2247
+msgid "Eingebundene Snapshots aushängen"
+msgstr "Unmount mounted snapshots"
+
+#: netshift.py:2248
+msgid "(intern) schnell aushängen beim Herunterfahren"
+msgstr "(internal) quick unmount during shutdown"
+
+#: netshift.py:2249
+msgid "Verbindung zum Netzwerkziel prüfen (WLAN?)"
+msgstr "Check the connection to the network target (Wi-Fi?)"
+
+#: netshift.py:2251
+msgid "Konfiguration und Zeitplan anzeigen"
+msgstr "Show configuration and schedule"
+
+#: netshift.py:2253
+msgid "Verbindung zum Ziel testen"
+msgstr "Test the connection to the target"
+
+#: netshift.py:2254
+msgid "Image-Container vergrößern"
+msgstr "Enlarge the image container"
+
+#: netshift.py:2256
+msgid "systemd-Timer gemäß Konfiguration (de)aktivieren"
+msgstr "Enable/disable systemd timers according to the configuration"
+
+#: netshift.py:2257
+msgid "SSH-Schlüssel erzeugen und auf den Server kopieren"
+msgstr "Create an SSH key and copy it to the server"
+
+#: netshift.py:2259
+msgid "Konfiguration anzeigen"
+msgstr "Show configuration"
+
+#: netshift.py:2260
+msgid "Konfiguration als JSON von stdin übernehmen"
+msgstr "Read configuration as JSON from stdin"
+
+#: netshift.py:2262
+msgid "Interaktive Einrichtung im Terminal"
+msgstr "Interactive setup in the terminal"
+
+#: netshift.py:2276
+msgid "netshift benötigt Root-Rechte – bitte mit sudo ausführen."
+msgstr "netshift needs root privileges – please run with sudo."
+
+#: netshift.py:223
+msgid "WARNUNG: "
+msgstr "WARNING: "
+
+#: netshift.py:231
+msgid "FEHLER: "
+msgstr "ERROR: "
+
+#: netshift.py:518
+msgid " Das Sicherungsziel war zuletzt nicht erreichbar."
+msgstr " The backup target was not reachable recently."
+
+#: netshift.py:596
+msgid "Die letzte Sicherung war erfolgreich."
+msgstr "The last backup was successful."
+
+#: netshift.py:596
+msgid "Problem behoben."
+msgstr "Problem solved."
+
+#: netshift.py:815
+#, python-brace-format
+msgid "Lokal {0}"
+msgstr "Local {0}"
+
+#: netshift.py:821
+msgid "Kein Sicherungsziel konfiguriert (Pfad fehlt). 'sudo netshift setup' ausführen."
+msgstr "No backup target configured (path missing). Run 'sudo netshift setup'."
+
+#: netshift.py:823
+msgid "SMB-Ziel unvollständig (Server/Freigabe). 'sudo netshift setup' ausführen."
+msgstr "SMB target incomplete (server/share). Run 'sudo netshift setup'."
+
+#: netshift.py:825
+msgid "NFS-Ziel unvollständig (Server/Export). 'sudo netshift setup' ausführen."
+msgstr "NFS target incomplete (server/export). Run 'sudo netshift setup'."
+
+#: netshift.py:827
+msgid "SSH-Ziel unvollständig (Server/Pfad). 'sudo netshift setup' ausführen."
+msgstr "SSH target incomplete (server/path). Run 'sudo netshift setup'."
+
+#: netshift.py:911
+msgid "SMB kann Linux-Besitzer/Rechte nicht zuverlässig speichern – für SMB ist nur der Image-Container möglich (container: image/auto)."
+msgstr "SMB cannot reliably store Linux owners/permissions – for SMB only the image container is possible (container: image/auto)."
+
+#: netshift.py:1073
+#, python-brace-format
+msgid "Snapshot '{ident}' nicht gefunden. 'netshift list' zeigt alle."
+msgstr "Snapshot '{ident}' not found. 'netshift list' shows all."
+
+#: netshift.py:1146
+msgid "Dateiliste wird erstellt…"
+msgstr "Building file list…"
+
+#: netshift.py:1252
+msgid " (erster, vollständiger Snapshot)"
+msgstr " (first, full snapshot)"
+
+#: netshift.py:1289
+#, python-brace-format
+msgid "Snapshot {name} erfolgreich erstellt ({0} s)."
+msgstr "Snapshot {name} created successfully ({0} s)."
+
+#: netshift.py:1332
+#, python-brace-format
+msgid "Platzmangel ({0} frei) – prüfe, ob das Löschen alter automatischer Snapshots reicht…"
+msgstr "Low space ({0} free) – checking whether deleting old automatic snapshots would be enough…"
+
+#: netshift.py:1465
+#, python-brace-format
+msgid "{dev} ist verschlüsselt. Bitte zuerst entsperren – in netshift einfach in der Laufwerksliste auf die Partition mit dem Schloss klicken, oder im Terminal: sudo netshift unlock {dev}"
+msgstr "{dev} is encrypted. Please unlock it first – in netshift simply click the partition with the lock in the drive list, or in the terminal: sudo netshift unlock {dev}"
+
+#: netshift.py:1475
+msgid "Passwort fehlt (--stdin verwenden)."
+msgstr "Password missing (use --stdin)."
+
+#: netshift.py:1535
+msgid "Das Ziel ist jetzt nur teilweise wiederhergestellt. Bitte bei stabiler Verbindung (am besten per LAN-Kabel) erneut wiederherstellen – bereits übertragene Dateien werden dabei übersprungen."
+msgstr "The target is now only partially restored. Please restore again with a stable connection (ideally a LAN cable) – files already transferred will be skipped."
+
+#: netshift.py:1596
+msgid " Zum Fortfahren 'JA' eingeben: "
+msgstr " Type 'YES' to continue: "
+
+#: netshift.py:1645
+msgid "Noch keine Snapshots vorhanden."
+msgstr "No snapshots yet."
+
+#: netshift.py:1647
+msgid "  Nr  Name                 Tags     System                   Kommentar"
+msgstr "  No  Name                 Tags     System                   Comment"
+
+#: netshift.py:1651
+msgid "Hinweis: Ein unterbrochener Snapshot liegt vor und wird beim nächsten Lauf fortgesetzt."
+msgstr "Note: an interrupted snapshot exists and will be resumed on the next run."
+
+#: netshift.py:1659 netshift.py:1838 netshift.py:1797
+msgid "Abgebrochen."
+msgstr "Cancelled."
+
+#: netshift.py:1808 netshift-gui.py:555
+msgid "Wiederherstellung abgeschlossen."
+msgstr "Restore complete."
+
+#: netshift.py:1816
+msgid "Starte neu…"
+msgstr "Rebooting…"
+
+#: netshift.py:1819
+msgid "Bitte das System so bald wie möglich neu starten."
+msgstr "Please reboot the system as soon as possible."
+
+#: netshift.py:1870 netshift.py:1891
+msgid "Kein geplanter Snapshot fällig."
+msgstr "No scheduled snapshot due."
+
+#: netshift.py:1979
+#, python-brace-format
+msgid "Ziel {0}: {1}, Verbindung über {2}{3}"
+msgstr "Target {0}: {1}, connection via {2}{3}"
+
+#: netshift.py:1979
+msgid "erreichbar"
+msgstr "reachable"
+
+#: netshift.py:1979
+msgid "NICHT erreichbar"
+msgstr "NOT reachable"
+
+#: netshift.py:1998
+#, python-brace-format
+msgid "Konfiguration: {CONFIG_PATH}"
+msgstr "Configuration: {CONFIG_PATH}"
+
+#: netshift.py:1999
+#, python-brace-format
+msgid "Ziel:          {0}  (Maschine: {1})"
+msgstr "Target:        {0}  (machine: {1})"
+
+#: netshift.py:2002
+#, python-brace-format
+msgid "Home sichern:  {0}"
+msgstr "Back up home:  {0}"
+
+#: netshift.py:2002
+msgid "nein"
+msgstr "no"
+
+#: netshift.py:2004
+#, python-brace-format
+msgid "Zeitplan:      {sch}"
+msgstr "Schedule:      {sch}"
+
+#: netshift.py:2005
+#, python-brace-format
+msgid "Pacman-Hook:   {0}"
+msgstr "Pacman hook:   {0}"
+
+#: netshift.py:2005
+msgid "an"
+msgstr "on"
+
+#: netshift.py:2026
+#, python-brace-format
+msgid "Verbindung OK: {0} [{1}] – {2} frei von {3}"
+msgstr "Connection OK: {0} [{1}] – {2} free of {3}"
+
+#: netshift.py:2037
+msgid "Bei SSH gibt es keinen Image-Container."
+msgstr "There is no image container with SSH."
+
+#: netshift.py:2122
+msgid "Zieltyp: smb / nfs / ssh / local"
+msgstr "Target type: smb / nfs / ssh / local"
+
+#: netshift.py:2133
+msgid "Domäne/Arbeitsgruppe (optional)"
+msgstr "Domain/workgroup (optional)"
+
+#: netshift.py:2138 netshift.py:2141
+msgid "Server"
+msgstr "Server"
+
+#: netshift.py:2139
+msgid "Export-Pfad (z.B. /volume1/backup)"
+msgstr "Export path (e.g. /volume1/backup)"
+
+#: netshift.py:2167
+#, python-brace-format
+msgid "Gespeichert in {CONFIG_PATH}."
+msgstr "Saved to {CONFIG_PATH}."
+
+#: netshift.py:2298
+msgid ""
+"\n"
+"Abgebrochen."
+msgstr ""
+"\n"
+"Cancelled."
+
+#: netshift.py:254
+#, python-brace-format
+msgid "'{prog}' fehlt. Installieren mit: sudo pacman -S {0}"
+msgstr "'{prog}' is missing. Install with: sudo pacman -S {0}"
+
+#: netshift.py:519
+msgid "Sicherung überfällig"
+msgstr "Backup overdue"
+
+#: netshift.py:524
+msgid "Sicherungsziel fast voll"
+msgstr "Backup target almost full"
+
+#: netshift.py:611
+msgid "Ein anderer netshift-Vorgang läuft bereits (z.B. ein geplanter Snapshot). Bitte kurz warten und erneut versuchen."
+msgstr "Another netshift operation is already running (e.g. a scheduled snapshot). Please wait a moment and try again."
+
+#: netshift.py:959
+#, python-brace-format
+msgid "Erstelle Image-Container {0} ({size} GiB, wächst bei Bedarf bis zu dieser Größe – sparse)…"
+msgstr "Creating image container {0} ({size} GiB, grows as needed up to this size – sparse)…"
+
+#: netshift.py:1015
+#, python-brace-format
+msgid "{mp} lässt sich nicht normal aushängen – wird verzögert ausgehängt."
+msgstr "{mp} cannot be unmounted normally – unmounting lazily."
+
+#: netshift.py:1130
+msgid ""
+"\n"
+"WARNUNG: Verbindung zum Sicherungsziel unterbrochen – warte…"
+msgstr ""
+"\n"
+"WARNING: connection to the backup target interrupted – waiting…"
+
+#: netshift.py:1230
+#, python-brace-format
+msgid ""
+"Die Snapshots in dieser Sicherung stammen vom Rechner '{other}', dieser Rechner heißt '{0}'. Damit nicht versehentlich ein fremdes System (z.B. ein Rettungs-Stick) zwischen den Sicherungen landet, wurde abgebrochen.\n"
+"Falls du diesen Rechner nur umbenannt hast: sudo netshift create --allow-other-host"
+msgstr ""
+"The snapshots in this backup come from the computer '{other}', this computer is called '{0}'. Cancelled so that a foreign system (e.g. a rescue stick) does not end up among the backups by mistake.\n"
+"If you only renamed this computer: sudo netshift create --allow-other-host"
+
+#: netshift.py:1238
+msgid "Image vergrößern (netshift → Hinweis „Vergrößern“ oder 'sudo netshift resize-image GRÖSSE') oder alte Snapshots löschen."
+msgstr "Enlarge the image (netshift → “Enlarge” notice or 'sudo netshift resize-image SIZE') or delete old snapshots."
+
+#: netshift.py:1238
+msgid "Alte Snapshots löschen."
+msgstr "Delete old snapshots."
+
+#: netshift.py:1251
+#, python-brace-format
+msgid "Erstelle Snapshot {name} [{0}] → {1}"
+msgstr "Creating snapshot {name} [{0}] → {1}"
+
+#: netshift.py:1265
+msgid "Das Sicherungsziel ist voll – der Snapshot konnte nicht fertiggestellt werden. "
+msgstr "The backup target is full – the snapshot could not be completed. "
+
+#: netshift.py:1269
+#, python-brace-format
+msgid "rsync ist mit Fehler {rc} abgebrochen. Der unvollständige Snapshot bleibt als '{INPROGRESS}' liegen und wird beim nächsten Lauf fortgesetzt."
+msgstr "rsync aborted with error {rc}. The incomplete snapshot remains as '{INPROGRESS}' and will be resumed on the next run."
+
+#: netshift.py:1335
+#, python-brace-format
+msgid "Das Löschen aller {0} automatischen Snapshots würde nur {1} freigeben und nicht reichen – es wird nichts gelöscht."
+msgstr "Deleting all {0} automatic snapshots would only free {1} and would not be enough – nothing is deleted."
+
+#: netshift.py:1341
+#, python-brace-format
+msgid "Platzmangel: lösche ältesten automatischen Snapshot {0} ({1})"
+msgstr "Low space: deleting oldest automatic snapshot {0} ({1})"
+
+#: netshift.py:1345
+#, python-brace-format
+msgid "{0} automatische(r) Snapshot(s) gelöscht, um Platz zu schaffen."
+msgstr "{0} automatic snapshot(s) deleted to free up space."
+
+#: netshift.py:1422
+#, python-brace-format
+msgid "{dev} ist nicht verschlüsselt."
+msgstr "{dev} is not encrypted."
+
+#: netshift.py:1436
+#, python-brace-format
+msgid "Entsperren fehlgeschlagen: {0}"
+msgstr "Unlocking failed: {0}"
+
+#: netshift.py:1450
+#, python-brace-format
+msgid "{dev} ist verschlüsselt und bereits entsperrt – verwende {0}."
+msgstr "{dev} is encrypted and already unlocked – using {0}."
+
+#: netshift.py:1489
+#, python-brace-format
+msgid "Gesperrt: {name}"
+msgstr "Locked: {name}"
+
+#: netshift.py:1495
+#, python-brace-format
+msgid "{dev} ist das gerade laufende System. Bitte die Partition der Festplatte des Rechners wählen, der wiederhergestellt werden soll."
+msgstr "{dev} is the currently running system. Please choose the partition on the disk of the computer you want to restore."
+
+#: netshift.py:1511
+#, python-brace-format
+msgid "Auf {dev} liegt kein Linux-System (kein /etc), aber andere Daten. Zur Sicherheit abgebrochen – bitte die richtige Partition wählen (die Systempartition des Rechners)."
+msgstr "There is no Linux system on {dev} (no /etc), but other data. Cancelled for safety – please choose the right partition (the system partition of the computer)."
+
+#: netshift.py:1539
+#, python-brace-format
+msgid "Wiederherstellung fehlgeschlagen (rsync {rc})."
+msgstr "Restore failed (rsync {rc})."
+
+#: netshift.py:1643
+#, python-brace-format
+msgid "Ziel: {0}  [{1}]  frei: {2} von {3}"
+msgstr "Target: {0}  [{1}]  free: {2} of {3}"
+
+#: netshift.py:1794
+msgid "Die Verbindung zum Sicherungsziel läuft über WLAN. Bei Aussetzern bricht die Wiederherstellung ab – ein LAN-Kabel ist deutlich sicherer."
+msgstr "The connection to the backup target uses Wi-Fi. If it drops out, the restore will abort – a LAN cable is much safer."
+
+#: netshift.py:1800
+msgid "Sicherheits-Snapshot des aktuellen Zustands wird erstellt…"
+msgstr "Creating a safety snapshot of the current state…"
+
+#: netshift.py:1888
+msgid "Geplant"
+msgstr "Scheduled"
+
+#: netshift.py:1896
+msgid "Anderer Vorgang läuft – übersprungen."
+msgstr "Another operation is running – skipped."
+
+#: netshift.py:1915
+msgid "netshift: letzter Pacman-Snapshot ist noch aktuell – übersprungen."
+msgstr "netshift: last pacman snapshot is still recent – skipped."
+
+#: netshift.py:1918
+msgid "netshift: Sicherung gehört zu einem anderen Rechner – kein Snapshot."
+msgstr "netshift: the backup belongs to another computer – no snapshot."
+
+#: netshift.py:1947
+msgid "Snapshots eingebunden. Jeder Snapshot liegt unter <name>/localhost. Aushängen mit: sudo netshift umount"
+msgstr "Snapshots mounted. Each snapshot is located under <name>/localhost. Unmount with: sudo netshift umount"
+
+#: netshift.py:2009
+#, python-brace-format
+msgid "Letzte Sicherung: {0}"
+msgstr "Last backup: {0}"
+
+#: netshift.py:2009
+msgid "%d.%m.%Y %H:%M"
+msgstr "%Y-%m-%d %H:%M"
+
+#: netshift.py:2011
+#, python-brace-format
+msgid "PROBLEM: {0} – {1}"
+msgstr "PROBLEM: {0} – {1}"
+
+#: netshift.py:2025
+msgid "Ziel speichert keine Linux-Besitzer – Image-Container verwenden (container: image)."
+msgstr "Target does not store Linux owners – use the image container (container: image)."
+
+#: netshift.py:2041
+msgid "Dieses Ziel verwendet keinen Image-Container."
+msgstr "This target does not use an image container."
+
+#: netshift.py:2091
+#, python-brace-format
+msgid "Übertrage Schlüssel zu {host} (Passwort wird einmalig abgefragt)…"
+msgstr "Transferring key to {host} (you will be asked for the password once)…"
+
+#: netshift.py:2132
+msgid "Passwort (Enter = unverändert): "
+msgstr "Password (Enter = unchanged): "
+
+#: netshift.py:2142 netshift-gtk.py:1700
+msgid "Benutzer"
+msgstr "User"
+
+#: netshift.py:2144
+msgid "Zielpfad auf dem Server"
+msgstr "Target path on the server"
+
+#: netshift.py:2145
+msgid "Server-Benutzer ist nicht root? Besitzer per --fake-super speichern (j/n)"
+msgstr "Server user is not root? Store owners via --fake-super (y/n)"
+
+#: netshift.py:2154
+msgid "Maximale Größe des Image-Containers in GiB"
+msgstr "Maximum size of the image container in GiB"
+
+#: netshift.py:2155
+msgid "Image mit LUKS verschlüsseln? (j/n)"
+msgstr "Encrypt image with LUKS? (y/n)"
+
+#: netshift.py:243
+#, python-brace-format
+msgid "Programm nicht gefunden: {0} – bitte installieren."
+msgstr "Program not found: {0} – please install it."
+
+#: netshift.py:245
+#, python-brace-format
+msgid "Zeitüberschreitung nach {timeout} s"
+msgstr "Timed out after {timeout} s"
+
+#: netshift.py:248
+#, python-brace-format
+msgid "Befehl fehlgeschlagen ({0}): {1}"
+msgstr "Command failed ({0}): {1}"
+
+#: netshift.py:515
+#, python-brace-format
+msgid "Die letzte erfolgreiche Sicherung ist {age} Tage alt."
+msgstr "The last successful backup is {age} days old."
+
+#: netshift.py:516
+#, python-brace-format
+msgid "Seit {age} Tagen wurde noch keine Sicherung erstellt."
+msgstr "No backup has been created for {age} days."
+
+#: netshift.py:714
+#, python-brace-format
+msgid "SSH-Befehl auf {0} fehlgeschlagen: {1}"
+msgstr "SSH command on {0} failed: {1}"
+
+#: netshift.py:829
+#, python-brace-format
+msgid "Unbekannter Zieltyp: {typ}"
+msgstr "Unknown target type: {typ}"
+
+#: netshift.py:870
+#, python-brace-format
+msgid ""
+"Einbinden fehlgeschlagen: {0} {mp}\n"
+"{1}"
+msgstr ""
+"Mounting failed: {0} {mp}\n"
+"{1}"
+
+#: netshift.py:934
+msgid ""
+"\n"
+"Im Ordner netshift auf der Freigabe liegt keine Sicherung."
+msgstr ""
+"\n"
+"There is no backup in the netshift folder on the share."
+
+#: netshift.py:951
+#, python-brace-format
+msgid ""
+"Das Image-Dateisystem ist beschädigt (e2fsck {0}). Manuell prüfen: e2fsck -f {dev}\n"
+"{1}"
+msgstr ""
+"The image file system is damaged (e2fsck {0}). Check manually: e2fsck -f {dev}\n"
+"{1}"
+
+#: netshift.py:1122
+msgid "Verbindung zum Sicherungsziel wieder da."
+msgstr "Connection to the backup target restored."
+
+#: netshift.py:1160
+#, python-brace-format
+msgid "Die Verbindung zum Sicherungsziel ist abgebrochen (seit {0} s nicht erreichbar)."
+msgstr "The connection to the backup target was lost (not reachable for {0} s)."
+
+#: netshift.py:1237
+#, python-brace-format
+msgid "Zu wenig freier Speicher auf dem Sicherungsziel ({0} frei, benötigt mindestens {1}). "
+msgstr "Not enough free space on the backup target ({0} free, at least {1} required). "
+
+#: netshift.py:1252
+#, python-brace-format
+msgid " (inkrementell zu {0})"
+msgstr " (incremental to {0})"
+
+#: netshift.py:1266
+msgid "Bitte das Image vergrößern oder alte Snapshots löschen."
+msgstr "Please enlarge the image or delete old snapshots."
+
+#: netshift.py:1267
+msgid "Bitte alte Snapshots löschen."
+msgstr "Please delete old snapshots."
+
+#: netshift.py:1368
+#, python-brace-format
+msgid "Lösche abgelaufenen Snapshot {name}"
+msgstr "Deleting expired snapshot {name}"
+
+#: netshift.py:1457
+#, python-brace-format
+msgid "{dev} ist verschlüsselt. Passwort zum Entsperren: "
+msgstr "{dev} is encrypted. Password to unlock: "
+
+#: netshift.py:1473
+#, python-brace-format
+msgid "Passwort für {0}: "
+msgstr "Password for {0}: "
+
+#: netshift.py:1483
+#, python-brace-format
+msgid "{d} wurde nicht von netshift entsperrt – bitte selbst schließen."
+msgstr "{d} was not unlocked by netshift – please close it yourself."
+
+#: netshift.py:1597
+msgid "JA"
+msgstr "YES"
+
+#: netshift.py:1658
+#, python-brace-format
+msgid "Snapshots löschen: {names}?"
+msgstr "Delete snapshots: {names}?"
+
+#: netshift.py:1662
+#, python-brace-format
+msgid "Lösche {0} …"
+msgstr "Deleting {0} …"
+
+#: netshift.py:1771
+#, python-brace-format
+msgid "Snapshot {0} ist unvollständig und kann nicht wiederhergestellt werden."
+msgstr "Snapshot {0} is incomplete and cannot be restored."
+
+#: netshift.py:1773
+#, python-brace-format
+msgid "Dieser Snapshot stammt vom Rechner '{0}', du bist gerade auf '{1}'. Zur Sicherheit wird er nicht auf das laufende System gespielt. Bitte als Ziel die Systempartition des Rechners wählen."
+msgstr "This snapshot comes from the computer '{0}', you are currently on '{1}'. For safety it will not be restored onto the running system. Please choose the system partition of the computer as target."
+
+#: netshift.py:1803
+#, python-brace-format
+msgid "Stelle {0} auf {what} wieder her…"
+msgstr "Restoring {0} to {what}…"
+
+#: netshift.py:1837
+#, python-brace-format
+msgid "{0} Pfad(e) aus {1} nach {dest} zurückholen?"
+msgstr "Restore {0} path(s) from {1} to {dest}?"
+
+#: netshift.py:1926
+#, python-brace-format
+msgid "netshift: Snapshot vor Paketänderung fehlgeschlagen: {e}"
+msgstr "netshift: snapshot before package change failed: {e}"
+
+#: netshift.py:1943
+#, python-brace-format
+msgid "SSH-Ziel – Snapshots liegen auf {0}/snapshots. Zum Durchsuchen z.B. sshfs nutzen oder 'netshift restore-files'."
+msgstr "SSH target – snapshots are located at {0}/snapshots. To browse, use e.g. sshfs or 'netshift restore-files'."
+
+#: netshift.py:2003
+#, python-brace-format
+msgid "{0} (behalte {1})"
+msgstr "{0} (keep {1})"
+
+#: netshift.py:2060
+#, python-brace-format
+msgid "Image auf {0} GiB vergrößert."
+msgstr "Image enlarged to {0} GiB."
+
+#: netshift.py:2076
+msgid "aktiviert"
+msgstr "enabled"
+
+#: netshift.py:2076
+msgid "deaktiviert"
+msgstr "disabled"
+
+#: netshift.py:2143 netshift-gtk.py:1702
+msgid "Port"
+msgstr "Port"
+
+#: netshift.py:2149
+msgid "Pfad, Gerät oder UUID=… (z.B. /run/media/user/USB oder UUID=1234-…)"
+msgstr "Path, device or UUID=… (e.g. /run/media/user/USB or UUID=1234-…)"
+
+#: netshift.py:2151
+msgid "Unbekannter Typ."
+msgstr "Unknown type."
+
+#: netshift.py:2160
+#, python-brace-format
+msgid "{label} automatisch sichern? (j/n)"
+msgstr "{label}: create snapshots automatically? (y/n)"
+
+#: netshift.py:525
+#, python-brace-format
+msgid "Noch {0} von {1} frei."
+msgstr "{0} of {1} still free."
+
+#: netshift.py:884
+#, python-brace-format
+msgid "Zielverzeichnis existiert nicht: {p} (Laufwerk eingesteckt/eingebunden?)"
+msgstr "Target directory does not exist: {p} (drive plugged in/mounted?)"
+
+#: netshift.py:932
+#, python-brace-format
+msgid "Auf dem Ziel gibt es keine Sicherung für den Rechner '{0}'."
+msgstr "There is no backup for the computer '{0}' on the target."
+
+#: netshift.py:984
+#, python-brace-format
+msgid ""
+"Neuer Schlüssel erzeugt: {key}\n"
+"         UNBEDINGT SICHERN (z.B. USB-Stick/Passwortmanager)! Ohne diese Datei ist eine Wiederherstellung von einem Live-System unmöglich."
+msgstr ""
+"New key created: {key}\n"
+"         BACK IT UP NOW (e.g. USB stick/password manager)! Without this file a restore from a live system is impossible."
+
+#: netshift.py:1121
+msgid "Verbindung wieder da – geht weiter…"
+msgstr "Connection is back – continuing…"
+
+#: netshift.py:1128
+#, python-brace-format
+msgid "Verbindung zum Sicherungsziel unterbrochen – warte… ({gone} s)"
+msgstr "Connection to the backup target interrupted – waiting… ({gone} s)"
+
+#: netshift.py:1460
+#, python-brace-format
+msgid "Entsperrt: {path}"
+msgstr "Unlocked: {path}"
+
+#: netshift.py:1487
+#, python-brace-format
+msgid "{name} konnte nicht geschlossen werden (noch eingebunden?)"
+msgstr "{name} could not be closed (still mounted?)"
+
+#: netshift.py:1739
+#, python-brace-format
+msgid "Berechne {0} …"
+msgstr "Calculating {0} …"
+
+#: netshift.py:1781
+#, python-brace-format
+msgid "Zielpfad existiert nicht: {dest_path}"
+msgstr "Target path does not exist: {dest_path}"
+
+#: netshift.py:1784
+#, python-brace-format
+msgid "In {dest_path} liegt kein Linux-System (kein /etc), aber andere Daten. Eine Wiederherstellung würde diese Daten löschen – zur Sicherheit abgebrochen. Bitte die Wurzel des Zielsystems oder einen leeren Ordner wählen."
+msgstr "There is no Linux system in {dest_path} (no /etc), but other data. A restore would delete this data – cancelled for safety. Please choose the root of the target system or an empty folder."
+
+#: netshift.py:1788
+#, python-brace-format
+msgid "Vorschau: Änderungen, die eine Wiederherstellung von {0} auf {what} vornehmen würde (Legende: > geändert/neu, *deleting = wird gelöscht):"
+msgstr "Preview: changes that restoring {0} to {what} would make (legend: > changed/new, *deleting = will be deleted):"
+
+#: netshift.py:1795
+#, python-brace-format
+msgid "Snapshot {0} ({1}) auf {what} zurückspielen? Dateien, die seitdem neu hinzugekommen sind, werden gelöscht{2}."
+msgstr "Restore snapshot {0} ({1}) to {what}? Files added since then will be deleted{2}."
+
+#: netshift.py:1795 netshift-gui.py:422
+msgid "ohne Kommentar"
+msgstr "no comment"
+
+#: netshift.py:1795
+msgid " (Home-Verzeichnisse bleiben unberührt)"
+msgstr " (home directories stay untouched)"
+
+#: netshift.py:1802
+#, python-brace-format
+msgid "Vor Wiederherstellung von {0}"
+msgstr "Before restoring {0}"
+
+#: netshift.py:1834
+#, python-brace-format
+msgid "Pfad muss absolut sein: {p}"
+msgstr "Path must be absolute: {p}"
+
+#: netshift.py:1848
+#, python-brace-format
+msgid "rsync meldet {rc} für {src}"
+msgstr "rsync reports {rc} for {src}"
+
+#: netshift.py:1885
+#, python-brace-format
+msgid "Übersprungen: Die Sicherung gehört zum Rechner '{other}', nicht zu '{0}'."
+msgstr "Skipped: the backup belongs to the computer '{other}', not to '{0}'."
+
+#: netshift.py:2044
+#, python-brace-format
+msgid "Image nicht gefunden: {img}"
+msgstr "Image not found: {img}"
+
+#: netshift.py:2048
+#, python-brace-format
+msgid "Neue Größe muss größer als die aktuelle sein ({0} GiB). Verkleinern wird nicht unterstützt."
+msgstr "The new size must be larger than the current one ({0} GiB). Shrinking is not supported."
+
+#: netshift.py:2163
+#, python-brace-format
+msgid "  Wie viele {0}e Snapshots behalten"
+msgstr "  How many {0} snapshots to keep"
+
+#: netshift.py:933
+#, python-brace-format
+msgid ""
+"\n"
+"Vorhandene Rechner: {0}\n"
+"Bitte in den Einstellungen unter „Name im Backup“ genau diesen Namen eintragen."
+msgstr ""
+"\n"
+"Available computers: {0}\n"
+"Please enter exactly this name in the settings under “Name in backup”."
+
+#: netshift.py:943
+#, python-brace-format
+msgid "Schlüsseldatei fehlt: {key}. Ohne sie ist das verschlüsselte Image nicht lesbar."
+msgstr "Key file missing: {key}. Without it the encrypted image cannot be read."
+
+#: netshift.py:1814
+msgid "Jetzt neu starten (dringend empfohlen)? [J/n] "
+msgstr "Reboot now (strongly recommended)? [Y/n] "
+
+#: netshift-gtk.py:80
+msgid "Mo."
+msgstr "Mon"
+
+#: netshift-gtk.py:80
+msgid "Di."
+msgstr "Tue"
+
+#: netshift-gtk.py:80
+msgid "Mi."
+msgstr "Wed"
+
+#: netshift-gtk.py:80
+msgid "Do."
+msgstr "Thu"
+
+#: netshift-gtk.py:80
+msgid "Fr."
+msgstr "Fri"
+
+#: netshift-gtk.py:80
+msgid "Sa."
+msgstr "Sat"
+
+#: netshift-gtk.py:80
+msgid "So."
+msgstr "Sun"
+
+#: netshift-gtk.py:81
+msgid "Jan."
+msgstr "Jan"
+
+#: netshift-gtk.py:81
+msgid "Feb."
+msgstr "Feb"
+
+#: netshift-gtk.py:81
+msgid "März"
+msgstr "Mar"
+
+#: netshift-gtk.py:81
+msgid "Apr."
+msgstr "Apr"
+
+#: netshift-gtk.py:81
+msgid "Mai"
+msgstr "May"
+
+#: netshift-gtk.py:81
+msgid "Juni"
+msgstr "Jun"
+
+#: netshift-gtk.py:81
+msgid "Juli"
+msgstr "Jul"
+
+#: netshift-gtk.py:81
+msgid "Aug."
+msgstr "Aug"
+
+#: netshift-gtk.py:81
+msgid "Sept."
+msgstr "Sep"
+
+#: netshift-gtk.py:82
+msgid "Okt."
+msgstr "Oct"
+
+#: netshift-gtk.py:82
+msgid "Nov."
+msgstr "Nov"
+
+#: netshift-gtk.py:82
+msgid "Dez."
+msgstr "Dec"
+
+#: netshift-gtk.py:66
+msgid "SSH-Server"
+msgstr "SSH server"
+
+#: netshift-gtk.py:66 netshift-gtk.py:1718 netshift-gui.py:771
+msgid "Lokales Laufwerk"
+msgstr "Local drive"
+
+#: netshift-gtk.py:67 netshift-gui.py:35
+msgid "Automatisch (empfohlen)"
+msgstr "Automatic (recommended)"
+
+#: netshift-gtk.py:67 netshift-gui.py:35
+msgid "Image-Container (ext4)"
+msgstr "Image container (ext4)"
+
+#: netshift-gtk.py:68 netshift-gui.py:36
+msgid "Direkt im Dateisystem"
+msgstr "Directly in the file system"
+
+#: netshift-gtk.py:70 netshift-gui.py:37
+msgid "Beim Systemstart"
+msgstr "At system start"
+
+#: netshift-gtk.py:77
+msgid "Update"
+msgstr "Update"
+
+#: netshift-gtk.py:77
+msgid "Vor Restore"
+msgstr "Before restore"
+
+#: netshift-gtk.py:132
+msgid "gerade eben"
+msgstr "just now"
+
+#: netshift-gtk.py:136
+msgid "vor einer Stunde"
+msgstr "an hour ago"
+
+#: netshift-gtk.py:140
+msgid "gestern"
+msgstr "yesterday"
+
+#: netshift-gtk.py:155
+msgid "Älter"
+msgstr "Older"
+
+#: netshift-gtk.py:796
+msgid "Optional eine kurze Beschreibung, z.B. „vor Treiber-Update“."
+msgstr "Optionally a short description, e.g. “before driver update”."
+
+#: netshift-gtk.py:120 netshift-gtk.py:148
+msgid "Heute"
+msgstr "Today"
+
+#: netshift-gtk.py:122 netshift-gtk.py:150
+msgid "Gestern"
+msgstr "Yesterday"
+
+#: netshift-gtk.py:123
+#, python-brace-format
+msgid "{wd} {day}. {mon}"
+msgstr "{wd}, {mon} {day}"
+
+#: netshift-gtk.py:141
+#, python-brace-format
+msgid "vor {0} Tagen"
+msgstr "{0} days ago"
+
+#: netshift-gtk.py:152
+msgid "Letzte 7 Tage"
+msgstr "Last 7 days"
+
+#: netshift-gtk.py:154
+msgid "Letzte 30 Tage"
+msgstr "Last 30 days"
+
+#: netshift-gtk.py:296
+msgid "Unbekannter Fehler"
+msgstr "Unknown error"
+
+#: netshift-gtk.py:378 netshift-gtk.py:491
+msgid "Verbinde mit dem Sicherungsziel…"
+msgstr "Connecting to the backup target…"
+
+#: netshift-gtk.py:474 netshift-gtk.py:1637 netshift-gtk.py:504 netshift-gui.py:650
+msgid "Einstellungen"
+msgstr "Settings"
+
+#: netshift-gtk.py:475
+msgid "Aktualisieren"
+msgstr "Refresh"
+
+#: netshift-gtk.py:477
+msgid "Über netshift"
+msgstr "About netshift"
+
+#: netshift-gtk.py:671 netshift-gtk.py:802 netshift-gtk.py:821 netshift-gtk.py:1116
+msgid "Abbrechen"
+msgstr "Cancel"
+
+#: netshift-gtk.py:672
+msgid "Vergrößern"
+msgstr "Enlarge"
+
+#: netshift-gtk.py:706
+msgid "Noch kein Snapshot vorhanden"
+msgstr "No snapshot yet"
+
+#: netshift-gtk.py:785
+msgid "Löschen…"
+msgstr "Delete…"
+
+#: netshift-gtk.py:798
+msgid ""
+"\n"
+"\n"
+"Hinweis: Der erste Snapshot überträgt das ganze System, und du bist per WLAN verbunden. Mit LAN-Kabel geht es schneller und zuverlässiger."
+msgstr ""
+"\n"
+"\n"
+"Note: the first snapshot transfers the entire system, and you are connected via Wi-Fi. A LAN cable is faster and more reliable."
+
+#: netshift-gtk.py:803
+msgid "Erstellen"
+msgstr "Create"
+
+#: netshift-gtk.py:822 netshift-gtk.py:1518 netshift-gui.py:305
+msgid "Löschen"
+msgstr "Delete"
+
+#: netshift-gtk.py:887 netshift-gtk.py:1215
+msgid "Später"
+msgstr "Later"
+
+#: netshift-gtk.py:888
+msgid "Jetzt neu starten"
+msgstr "Reboot now"
+
+#: netshift-gtk.py:972
+msgid "Laufwerk auswählen"
+msgstr "Select drive"
+
+#: netshift-gtk.py:1015 netshift-gui.py:416
+msgid "System wiederherstellen"
+msgstr "Restore system"
+
+#: netshift-gtk.py:1027
+msgid "Dieses System"
+msgstr "This system"
+
+#: netshift-gtk.py:1028
+msgid "Systemdateien auf den Stand des Snapshots setzen, danach Neustart"
+msgstr "Reset system files to the state of the snapshot, then reboot"
+
+#: netshift-gtk.py:1029
+msgid "Anderes Laufwerk oder Ordner"
+msgstr "Another drive or folder"
+
+#: netshift-gtk.py:1030
+msgid "Live-USB, neue Festplatte oder ein Verzeichnis"
+msgstr "Live USB, new hard disk or a directory"
+
+#: netshift-gtk.py:1117
+msgid "Entsperren"
+msgstr "Unlock"
+
+#: netshift-gtk.py:1183
+msgid "das laufende System"
+msgstr "the running system"
+
+#: netshift-gtk.py:1187
+msgid ""
+"\n"
+"\n"
+"⚠ Du bist per WLAN verbunden. Bricht die Verbindung ab, ist das Ziel nur teilweise wiederhergestellt. Am besten jetzt ein LAN-Kabel anschließen."
+msgstr ""
+"\n"
+"\n"
+"⚠ You are connected via Wi-Fi. If the connection drops, the target will only be partially restored. Ideally connect a LAN cable now."
+
+#: netshift-gtk.py:1363 netshift-gtk.py:1519
+msgid "Dateien zurückholen"
+msgstr "Restore files"
+
+#: netshift-gtk.py:1383
+msgid "An den Originalort"
+msgstr "To the original location"
+
+#: netshift-gtk.py:1383
+msgid "Aktuelle Version wird überschrieben"
+msgstr "The current version will be overwritten"
+
+#: netshift-gtk.py:1386
+msgid "In einen anderen Ordner"
+msgstr "To another folder"
+
+#: netshift-gtk.py:1457 netshift-gtk.py:1724
+msgid "Zielordner"
+msgstr "Target folder"
+
+#: netshift-gtk.py:1473
+msgid "den Originalort"
+msgstr "the original location"
+
+#: netshift-gtk.py:1495 netshift-gui.py:318
+msgid "Snapshot-Details"
+msgstr "Snapshot details"
+
+#: netshift-gtk.py:1532
+msgid "im Image"
+msgstr "in the image"
+
+#: netshift-gtk.py:1532
+msgid "auf dem Ziel"
+msgstr "on the target"
+
+#: netshift-gtk.py:1534
+msgid "Neu berechnen"
+msgstr "Recalculate"
+
+#: netshift-gtk.py:1750
+msgid "Maximale Image-Größe (GiB)"
+msgstr "Maximum image size (GiB)"
+
+#: netshift-gtk.py:1751
+msgid "Belegt nur so viel, wie tatsächlich gesichert ist"
+msgstr "Only uses as much space as is actually backed up"
+
+#: netshift-gtk.py:1771
+msgid "Mindestens frei lassen (GiB)"
+msgstr "Keep at least this much free (GiB)"
+
+#: netshift-gtk.py:1808 netshift-gtk.py:1792
+msgid "Anzahl behalten"
+msgstr "Number to keep"
+
+#: netshift-gtk.py:1811
+msgid "Mindestabstand (Minuten)"
+msgstr "Minimum interval (minutes)"
+
+#: netshift-gtk.py:1812
+msgid "Mehrere Updates kurz hintereinander lösen nur einen Snapshot aus"
+msgstr "Several updates in quick succession trigger only one snapshot"
+
+#: netshift-gtk.py:1827
+msgid "Warnen, wenn die letzte Sicherung älter ist als (Tage)"
+msgstr "Warn if the last backup is older than (days)"
+
+#: netshift-gtk.py:1966
+msgid "Verbinde…"
+msgstr "Connecting…"
+
+#: netshift-gtk.py:2000
+msgid "Befehl kopieren"
+msgstr "Copy command"
+
+#: netshift-gtk.py:2001 netshift-gui.py:550 netshift-gui.py:553 netshift-gui.py:555
+msgid "Fertig"
+msgstr "Done"
+
+#: netshift-gtk.py:134
+#, python-brace-format
+msgid "vor {0} Minuten"
+msgstr "{0} minutes ago"
+
+#: netshift-gtk.py:138
+#, python-brace-format
+msgid "vor {0} Stunden"
+msgstr "{0} hours ago"
+
+#: netshift-gtk.py:185
+#, python-brace-format
+msgid "verschlüsselt · {0} · zum Entsperren anklicken"
+msgstr "encrypted · {0} · click to unlock"
+
+#: netshift-gtk.py:192
+msgid "eingehängt: "
+msgstr "mounted: "
+
+#: netshift-gtk.py:329
+msgid "Details"
+msgstr "Details"
+
+#: netshift-gtk.py:430
+msgid "Abgeschlossen"
+msgstr "Completed"
+
+#: netshift-gtk.py:443
+msgid "Wird abgebrochen…"
+msgstr "Cancelling…"
+
+#: netshift-gtk.py:467
+msgid "System-Snapshots"
+msgstr "System snapshots"
+
+#: netshift-gtk.py:471
+msgid "Neuen Snapshot erstellen (Strg+N)"
+msgstr "Create a new snapshot (Ctrl+N)"
+
+#: netshift-gtk.py:494
+msgid "Willkommen bei netshift"
+msgstr "Welcome to netshift"
+
+#: netshift-gtk.py:495
+msgid "Sichere dein System auf ein NAS, einen Server oder ein USB-Laufwerk und stelle es mit wenigen Klicks wieder her."
+msgstr "Back up your system to a NAS, a server or a USB drive and restore it with just a few clicks."
+
+#: netshift-gtk.py:500
+msgid "Ziel nicht erreichbar"
+msgstr "Target not reachable"
+
+#: netshift-gtk.py:553
+msgid "Es läuft bereits ein Vorgang"
+msgstr "An operation is already running"
+
+#: netshift-gtk.py:570
+msgid "Noch nicht eingerichtet"
+msgstr "Not set up yet"
+
+#: netshift-gtk.py:602
+msgid "netshift – Rettungssystem"
+msgstr "netshift – Rescue system"
+
+#: netshift-gtk.py:668
+msgid "Image vergrößern"
+msgstr "Enlarge image"
+
+#: netshift-gtk.py:718
+msgid "Vor Updates"
+msgstr "Before updates"
+
+#: netshift-gtk.py:763
+msgid "⚠ Unvollständig – "
+msgstr "⚠ Incomplete – "
+
+#: netshift-gtk.py:774
+msgid "Wiederherstellen…"
+msgstr "Restore…"
+
+#: netshift-gtk.py:779
+msgid "Dateien zurückholen…"
+msgstr "Restore files…"
+
+#: netshift-gtk.py:779
+msgid "Im Dateimanager öffnen"
+msgstr "Open in file manager"
+
+#: netshift-gtk.py:780
+msgid "Details & Kommentar…"
+msgstr "Details & comment…"
+
+#: netshift-gtk.py:800
+msgid "Kommentar (optional)"
+msgstr "Comment (optional)"
+
+#: netshift-gtk.py:819
+msgid "Snapshot löschen?"
+msgstr "Delete snapshot?"
+
+#: netshift-gtk.py:862
+msgid "Bei SSH-Zielen bitte „Dateien zurückholen“ verwenden"
+msgstr "For SSH targets please use “Restore files”"
+
+#: netshift-gtk.py:881
+msgid "System-Snapshots wie Timeshift – lokal, auf SMB-, NFS- und SSH-Zielen."
+msgstr "System snapshots like Timeshift – local, on SMB, NFS and SSH targets."
+
+#: netshift-gtk.py:886 netshift-gtk.py:1222 netshift-gtk.py:1213
+msgid "Wiederherstellung abgeschlossen"
+msgstr "Restore complete"
+
+#: netshift-gtk.py:920
+msgid "Weiterlaufen lassen"
+msgstr "Keep running"
+
+#: netshift-gtk.py:921
+msgid "Abbrechen und beenden"
+msgstr "Cancel and quit"
+
+#: netshift-gtk.py:981
+msgid " · dieses laufende System"
+msgstr " · this running system"
+
+#: netshift-gtk.py:1026 netshift-gtk.py:1382
+msgid "Wohin?"
+msgstr "Where to?"
+
+#: netshift-gtk.py:1037
+msgid "Festplatte des Rechners"
+msgstr "The computer's hard disk"
+
+#: netshift-gtk.py:1046
+msgid "Gerät oder Ordner (z.B. /dev/sda2)"
+msgstr "Device or folder (e.g. /dev/sda2)"
+
+#: netshift-gtk.py:1048 netshift-gtk.py:1389 netshift-gtk.py:1723
+msgid "Ordner wählen"
+msgstr "Choose folder"
+
+#: netshift-gtk.py:1054
+msgid "Optionen"
+msgstr "Options"
+
+#: netshift-gtk.py:1055
+msgid "Sicherheits-Snapshot anlegen"
+msgstr "Create a safety snapshot"
+
+#: netshift-gtk.py:1056
+msgid "Aktuellen Zustand vorher sichern – falls du zurück willst"
+msgstr "Back up the current state first – in case you want to go back"
+
+#: netshift-gtk.py:1057
+msgid "Danach neu starten"
+msgstr "Reboot afterwards"
+
+#: netshift-gtk.py:1057
+msgid "Dringend empfohlen"
+msgstr "Strongly recommended"
+
+#: netshift-gtk.py:1058
+msgid "fstab und crypttab behalten"
+msgstr "Keep fstab and crypttab"
+
+#: netshift-gtk.py:1059
+msgid "Bei geänderten Partitionen oder UUIDs"
+msgstr "If partitions or UUIDs have changed"
+
+#: netshift-gtk.py:1060
+msgid "GRUB-Konfiguration neu erzeugen"
+msgstr "Regenerate GRUB configuration"
+
+#: netshift-gtk.py:1061
+msgid "grub-mkconfig im wiederhergestellten System"
+msgstr "grub-mkconfig in the restored system"
+
+#: netshift-gtk.py:1067
+msgid "Verbindung über WLAN"
+msgstr "Connection via Wi-Fi"
+
+#: netshift-gtk.py:1068
+msgid "Für die Wiederherstellung besser ein LAN-Kabel verwenden – bei Aussetzern bricht sie sonst ab."
+msgstr "Better use a LAN cable for the restore – otherwise it aborts if the connection drops."
+
+#: netshift-gtk.py:1083 netshift-gui.py:463
+msgid "Vorschau der Änderungen"
+msgstr "Preview changes"
+
+#: netshift-gtk.py:1085 netshift-gtk.py:1190 netshift-gtk.py:1520 netshift-gui.py:462
+msgid "Wiederherstellen"
+msgstr "Restore"
+
+#: netshift-gtk.py:1111
+msgid "Verschlüsselte Partition entsperren"
+msgstr "Unlock encrypted partition"
+
+#: netshift-gtk.py:1184
+#, python-brace-format
+msgid "Der Snapshot vom {0} wird auf {what} zurückgespielt. Seitdem hinzugekommene Systemdateien werden entfernt."
+msgstr "The snapshot from {0} will be restored to {what}. System files added since then will be removed."
+
+#: netshift-gtk.py:1188 netshift-gui.py:534
+msgid "Wirklich wiederherstellen?"
+msgstr "Really restore?"
+
+#: netshift-gtk.py:1190
+msgid "Trotzdem wiederherstellen"
+msgstr "Restore anyway"
+
+#: netshift-gtk.py:1223
+msgid "System wird wiederhergestellt"
+msgstr "Restoring system"
+
+#: netshift-gtk.py:1242
+msgid "Vorschau fehlgeschlagen"
+msgstr "Preview failed"
+
+#: netshift-gtk.py:1244
+msgid "Keine Änderungen"
+msgstr "No changes"
+
+#: netshift-gtk.py:1245
+msgid "Das Ziel entspricht bereits diesem Snapshot."
+msgstr "The target already matches this snapshot."
+
+#: netshift-gtk.py:1252 netshift-gtk.py:1267
+msgid "Neu"
+msgstr "New"
+
+#: netshift-gtk.py:1252 netshift-gtk.py:1267
+msgid "Geändert"
+msgstr "Changed"
+
+#: netshift-gtk.py:1253 netshift-gtk.py:1267
+msgid "Gelöscht"
+msgstr "Deleted"
+
+#: netshift-gtk.py:1262
+msgid "Pfad filtern…"
+msgstr "Filter paths…"
+
+#: netshift-gtk.py:1267
+msgid "Alle"
+msgstr "All"
+
+#: netshift-gtk.py:1354
+msgid "„Neu“ = fehlt auf dem Ziel und wird angelegt · „Geändert“ = wird mit der Version aus dem Snapshot überschrieben · „Gelöscht“ = ist seit dem Snapshot hinzugekommen und wird entfernt."
+msgstr "“New” = missing on the target and will be created · “Changed” = will be overwritten with the version from the snapshot · “Deleted” = was added since the snapshot and will be removed."
+
+#: netshift-gtk.py:1366
+msgid "Was soll zurückgeholt werden?"
+msgstr "What should be restored?"
+
+#: netshift-gtk.py:1376
+msgid "Pfad eingeben, z.B. /etc/pacman.conf"
+msgstr "Enter a path, e.g. /etc/pacman.conf"
+
+#: netshift-gtk.py:1394
+msgid "Ordner exakt angleichen"
+msgstr "Make folders match exactly"
+
+#: netshift-gtk.py:1395
+msgid "Seitdem neu hinzugekommene Dateien darin löschen"
+msgstr "Delete files added to them since then"
+
+#: netshift-gtk.py:1399 netshift-gtk.py:1471 netshift-gui.py:592 netshift-gui.py:633
+msgid "Vorschau"
+msgstr "Preview"
+
+#: netshift-gtk.py:1401 netshift-gui.py:591
+msgid "Zurückholen"
+msgstr "Restore"
+
+#: netshift-gtk.py:1421 netshift-gtk.py:1873
+msgid "Entfernen"
+msgstr "Remove"
+
+#: netshift-gtk.py:1477
+msgid "Dateien werden zurückgeholt"
+msgstr "Restoring files"
+
+#: netshift-gtk.py:1483
+msgid "Überschreiben"
+msgstr "Overwrite"
+
+#: netshift-gtk.py:1497 netshift-gui.py:111 netshift-gui.py:313
+msgid "Kommentar"
+msgstr "Comment"
+
+#: netshift-gtk.py:1502
+msgid "Informationen"
+msgstr "Information"
+
+#: netshift-gtk.py:1505 netshift-gui.py:313
+msgid "Erstellt"
+msgstr "Created"
+
+#: netshift-gtk.py:1505 netshift-gui.py:110
+msgid "Typ"
+msgstr "Type"
+
+#: netshift-gtk.py:1505 netshift-gui.py:110 netshift-gui.py:314
+msgid "System"
+msgstr "System"
+
+#: netshift-gtk.py:1506 netshift-gui.py:314
+msgid "Kernel"
+msgstr "Kernel"
+
+#: netshift-gtk.py:1506 netshift-gui.py:314
+msgid "Rechner"
+msgstr "Computer"
+
+#: netshift-gtk.py:1507
+msgid "Dauer"
+msgstr "Duration"
+
+#: netshift-gtk.py:1508
+msgid "Basis"
+msgstr "Based on"
+
+#: netshift-gtk.py:1510 netshift-gui.py:315
+msgid "Home enthalten"
+msgstr "Includes home"
+
+#: netshift-gtk.py:1511 netshift-gui.py:111 netshift-gui.py:316
+msgid "Status"
+msgstr "Status"
+
+#: netshift-gtk.py:1512 netshift-gui.py:313
+msgid "Name"
+msgstr "Name"
+
+#: netshift-gtk.py:1538
+msgid "Belegt nur durch diesen Snapshot"
+msgstr "Used only by this snapshot"
+
+#: netshift-gtk.py:1538
+msgid "Wird beim Löschen frei"
+msgstr "Freed when deleting"
+
+#: netshift-gtk.py:1539
+msgid "Gesamtumfang"
+msgstr "Total size"
+
+#: netshift-gtk.py:1539
+msgid "Vollständiges System zu diesem Zeitpunkt – unveränderte Dateien teilt er sich per Hardlink mit anderen Snapshots"
+msgstr "Complete system at this point in time – unchanged files are shared with other snapshots via hard links"
+
+#: netshift-gtk.py:1540 netshift-gtk.py:1369
+msgid "Dateien"
+msgstr "Files"
+
+#: netshift-gtk.py:1554
+msgid "Für unvollständige Snapshots nicht verfügbar."
+msgstr "Not available for incomplete snapshots."
+
+#: netshift-gtk.py:1557
+msgid "Zuletzt berechnet – wird geprüft…"
+msgstr "Last calculated – checking…"
+
+#: netshift-gtk.py:1578
+msgid "Während eines laufenden Vorgangs nicht verfügbar."
+msgstr "Not available while an operation is running."
+
+#: netshift-gtk.py:1591
+msgid "Wird berechnet – bei vielen Dateien über das Netzwerk kann das eine Minute dauern…"
+msgstr "Calculating – with many files over the network this can take a minute…"
+
+#: netshift-gtk.py:1653
+msgid "Ziel"
+msgstr "Target"
+
+#: netshift-gtk.py:1654
+msgid "Dieser Rechner"
+msgstr "This computer"
+
+#: netshift-gtk.py:1655
+msgid "Name im Backup"
+msgstr "Name in backup"
+
+#: netshift-gtk.py:1657
+msgid "Rettungssystem – nur wiederherstellen"
+msgstr "Rescue system – restore only"
+
+#: netshift-gtk.py:1658
+msgid "Für den USB-Stick: Hier wird nie gesichert. Die Snapshots des Rechners werden nur gelesen und auf seine Festplatte zurückgespielt."
+msgstr "For the USB stick: nothing is ever backed up here. The snapshots of the computer are only read and restored onto its hard disk."
+
+#: netshift-gtk.py:1662
+msgid "Im Rettungssystem muss der Name genau so lauten wie beim gesicherten Rechner (z.B. meinrechner) – sonst findet netshift dessen Sicherung nicht."
+msgstr "In the rescue system the name must be exactly the same as on the backed-up computer (e.g. mycomputer) – otherwise netshift will not find its backup."
+
+#: netshift-gtk.py:1667 netshift-gui.py:666
+msgid "Sicherungsziel"
+msgstr "Backup target"
+
+#: netshift-gtk.py:1668
+msgid "Art"
+msgstr "Type"
+
+#: netshift-gtk.py:1675
+msgid "SMB / Windows-Freigabe / NAS"
+msgstr "SMB / Windows share / NAS"
+
+#: netshift-gtk.py:1676
+msgid "z.B. smb://192.168.1.10/Backup → Server 192.168.1.10, Freigabe Backup"
+msgstr "e.g. smb://192.168.1.10/Backup → server 192.168.1.10, share Backup"
+
+#: netshift-gtk.py:1677 netshift-gtk.py:1692 netshift-gtk.py:1699
+msgid "Server (Name oder IP)"
+msgstr "Server (name or IP)"
+
+#: netshift-gtk.py:1678
+msgid "Freigabe"
+msgstr "Share"
+
+#: netshift-gtk.py:1679
+msgid "Benutzer (leer = Gast)"
+msgstr "User (empty = guest)"
+
+#: netshift-gtk.py:1682
+msgid "Domäne / Arbeitsgruppe (optional)"
+msgstr "Domain / workgroup (optional)"
+
+#: netshift-gtk.py:1684
+msgid "SMB-Version"
+msgstr "SMB version"
+
+#: netshift-gtk.py:1693
+msgid "Export, z.B. /volume1/backup"
+msgstr "Export, e.g. /volume1/backup"
+
+#: netshift-gtk.py:1698
+msgid "Linux-Server oder NAS mit rsync"
+msgstr "Linux server or NAS with rsync"
+
+#: netshift-gtk.py:1704
+msgid "Pfad auf dem Server"
+msgstr "Path on the server"
+
+#: netshift-gtk.py:1705 netshift-gtk.py:1760
+msgid "Schlüsseldatei"
+msgstr "Key file"
+
+#: netshift-gtk.py:1706
+msgid "Benutzer ist nicht root"
+msgstr "User is not root"
+
+#: netshift-gtk.py:1707
+msgid "Besitzer und Rechte per --fake-super speichern"
+msgstr "Store owners and permissions via --fake-super"
+
+#: netshift-gtk.py:1709
+msgid "Anzeigen…"
+msgstr "Show…"
+
+#: netshift-gtk.py:1711 netshift-gui.py:825
+msgid "SSH-Schlüssel"
+msgstr "SSH key"
+
+#: netshift-gtk.py:1711
+msgid "Erzeugen und auf dem Server hinterlegen"
+msgstr "Create and store it on the server"
+
+#: netshift-gtk.py:1719
+msgid "Ordner, Gerät (/dev/sdb1) oder UUID=… – UUID ist am zuverlässigsten bei USB-Laufwerken"
+msgstr "Folder, device (/dev/sdb1) or UUID=… – UUID is the most reliable for USB drives"
+
+#: netshift-gtk.py:1720
+msgid "Pfad, Gerät oder UUID"
+msgstr "Path, device or UUID"
+
+#: netshift-gtk.py:1729
+msgid "Verbindung testen"
+msgstr "Test connection"
+
+#: netshift-gtk.py:1729
+msgid "Speichert und prüft das Ziel"
+msgstr "Saves and checks the target"
+
+#: netshift-gtk.py:1736
+msgid "Testen"
+msgstr "Test"
+
+#: netshift-gtk.py:1744
+msgid "Speicher"
+msgstr "Storage"
+
+#: netshift-gtk.py:1745
+msgid "Ablage"
+msgstr "Storage location"
+
+#: netshift-gtk.py:1746
+msgid "„Automatisch“ nutzt auf SMB, NFS, FAT und NTFS einen ext4-Image-Container – nur so bleiben Besitzer, Rechte und Hardlinks erhalten."
+msgstr "“Automatic” uses an ext4 image container on SMB, NFS, FAT and NTFS – only this way owners, permissions and hard links are preserved."
+
+#: netshift-gtk.py:1747 netshift-gui.py:786
+msgid "Speicherformat"
+msgstr "Storage format"
+
+#: netshift-gtk.py:1756
+msgid "Verschlüsselung"
+msgstr "Encryption"
+
+#: netshift-gtk.py:1757 netshift-gui.py:795
+msgid "Image verschlüsseln (LUKS2)"
+msgstr "Encrypt image (LUKS2)"
+
+#: netshift-gtk.py:1758
+msgid "Schützt die Sicherung, falls jemand Zugriff auf das NAS hat"
+msgstr "Protects the backup if someone has access to the NAS"
+
+#: netshift-gtk.py:1762
+msgid "Schlüsseldatei unbedingt zusätzlich sichern"
+msgstr "Be sure to back up the key file separately"
+
+#: netshift-gtk.py:1763
+msgid "Ohne sie ist keine Wiederherstellung vom Live-USB möglich"
+msgstr "Without it, no restore from a live USB is possible"
+
+#: netshift-gtk.py:1768
+msgid "Erweitert"
+msgstr "Advanced"
+
+#: netshift-gtk.py:1769
+msgid "Zusätzliche Mount-Optionen"
+msgstr "Additional mount options"
+
+#: netshift-gtk.py:1773
+msgid "Bei Platzmangel automatisch aufräumen"
+msgstr "Clean up automatically when space runs low"
+
+#: netshift-gtk.py:1774
+msgid "Löscht die ältesten automatischen Snapshots – nur wenn es wirklich hilft. Manuelle Snapshots bleiben immer erhalten."
+msgstr "Deletes the oldest automatic snapshots – only if it really helps. Manual snapshots are always kept."
+
+#: netshift-gtk.py:1783 netshift-gui.py:667
+msgid "Zeitplan"
+msgstr "Schedule"
+
+#: netshift-gtk.py:1784 netshift-gui.py:833
+msgid "Automatische Snapshots"
+msgstr "Automatic snapshots"
+
+#: netshift-gtk.py:1785
+msgid "Verpasste Termine werden nachgeholt, sobald das Ziel erreichbar ist. Manuelle Snapshots werden nie automatisch gelöscht."
+msgstr "Missed runs are caught up as soon as the target is reachable. Manual snapshots are never deleted automatically."
+
+#: netshift-gtk.py:1802
+msgid "Software-Updates"
+msgstr "Software updates"
+
+#: netshift-gtk.py:1803
+msgid "Snapshot vor jeder Installation, Aktualisierung oder Entfernung mit pacman oder pamac"
+msgstr "Snapshot before every installation, update or removal with pacman or pamac"
+
+#: netshift-gtk.py:1804
+msgid "Snapshot vor Updates"
+msgstr "Snapshot before updates"
+
+#: netshift-gtk.py:1814 netshift-gui.py:854
+msgid "Update abbrechen, wenn der Snapshot fehlschlägt"
+msgstr "Cancel the update if the snapshot fails"
+
+#: netshift-gtk.py:1815
+msgid "Z.B. wenn das NAS nicht erreichbar ist"
+msgstr "E.g. if the NAS is not reachable"
+
+#: netshift-gtk.py:1821
+msgid "Benachrichtigungen"
+msgstr "Notifications"
+
+#: netshift-gtk.py:1822
+msgid "Meldung auf dem Desktop, wenn eine automatische Sicherung fehlschlägt oder zu lange keine erfolgreiche Sicherung lief. Ist das NAS nur nicht erreichbar (z.B. unterwegs), wird erst nach der eingestellten Zeit gewarnt."
+msgstr "Desktop notification when an automatic backup fails or there has been no successful backup for too long. If the NAS is merely unreachable (e.g. when travelling), the warning only comes after the configured time."
+
+#: netshift-gtk.py:1823
+msgid "Bei Problemen benachrichtigen"
+msgstr "Notify about problems"
+
+#: netshift-gtk.py:1836
+msgid "Aus"
+msgstr "Off"
+
+#: netshift-gtk.py:1839
+msgid "Ausschlüsse"
+msgstr "Exclusions"
+
+#: netshift-gtk.py:1840
+msgid "Umfang"
+msgstr "Scope"
+
+#: netshift-gtk.py:1841
+msgid "Home-Verzeichnisse mitsichern"
+msgstr "Also back up home directories"
+
+#: netshift-gtk.py:1842
+msgid "Achtung: Eine Wiederherstellung setzt dann auch persönliche Dateien zurück"
+msgstr "Caution: a restore will then also reset personal files"
+
+#: netshift-gtk.py:1843
+msgid "Paketcache auslassen"
+msgstr "Skip package cache"
+
+#: netshift-gtk.py:1848
+msgid "Eigene Ausschlüsse"
+msgstr "Custom exclusions"
+
+#: netshift-gtk.py:1849
+msgid "rsync-Muster, z.B. /opt/spiele/* oder /home/*/Videos/*"
+msgstr "rsync patterns, e.g. /opt/games/* or /home/*/Videos/*"
+
+#: netshift-gtk.py:1850
+msgid "Muster hinzufügen"
+msgstr "Add pattern"
+
+#: netshift-gtk.py:1858
+msgid "Immer ausgeschlossen"
+msgstr "Always excluded"
+
+#: netshift-gtk.py:1859
+msgid "Systemverzeichnisse"
+msgstr "System directories"
+
+#: netshift-gtk.py:1860
+msgid "Eingehängte Netzwerk- und Temp-Dateisysteme"
+msgstr "Mounted network and temporary file systems"
+
+#: netshift-gtk.py:1861
+msgid "Werden beim Erstellen automatisch erkannt (Mountpunkt bleibt erhalten)"
+msgstr "Detected automatically when creating snapshots (the mount point is kept)"
+
+#: netshift-gtk.py:1992
+msgid "SSH-Schlüssel hinterlegen"
+msgstr "Install SSH key"
+
+#: netshift-gtk.py:1993
+msgid "Einmalig im Terminal ausführen (fragt das Server-Passwort ab) – oder den Schlüssel auf dem Server in ~/.ssh/authorized_keys eintragen."
+msgstr "Run once in the terminal (asks for the server password) – or add the key on the server to ~/.ssh/authorized_keys."
+
+#: netshift-gtk.py:120
+#, python-brace-format
+msgid "Heute, {t}"
+msgstr "Today, {t}"
+
+#: netshift-gtk.py:122
+#, python-brace-format
+msgid "Gestern, {t}"
+msgstr "Yesterday, {t}"
+
+#: netshift-gtk.py:188
+#, python-brace-format
+msgid "entsperrt von {0}"
+msgstr "unlocked from {0}"
+
+#: netshift-gtk.py:433
+msgid "Abgebrochen"
+msgstr "Cancelled"
+
+#: netshift-gtk.py:479
+msgid "Hauptmenü"
+msgstr "Main menu"
+
+#: netshift-gtk.py:482
+msgid "Aktualisieren (F5)"
+msgstr "Refresh (F5)"
+
+#: netshift-gtk.py:496
+msgid "Sicherungsziel einrichten"
+msgstr "Set up backup target"
+
+#: netshift-gtk.py:502
+msgid "Erneut versuchen"
+msgstr "Try again"
+
+#: netshift-gtk.py:642
+msgid "Vergrößern…"
+msgstr "Enlarge…"
+
+#: netshift-gtk.py:650
+msgid "Vollständige Meldung"
+msgstr "Full message"
+
+#: netshift-gtk.py:704
+#, python-brace-format
+msgid "Letzter Snapshot {0} · {1} Snapshots"
+msgstr "Last snapshot {0} · {1} snapshots"
+
+#: netshift-gtk.py:710
+msgid "Rettungssystem · nur Wiederherstellung"
+msgstr "Rescue system · restore only"
+
+#: netshift-gtk.py:723
+msgid "Keine automatischen Snapshots"
+msgstr "No automatic snapshots"
+
+#: netshift-gtk.py:750
+msgid "Ein unterbrochener Snapshot wird beim nächsten Erstellen fortgesetzt."
+msgstr "An interrupted snapshot will be resumed the next time one is created."
+
+#: netshift-gtk.py:765
+msgid "⚠ Mit Warnungen – "
+msgstr "⚠ With warnings – "
+
+#: netshift-gtk.py:790
+msgid "Weitere Aktionen"
+msgstr "More actions"
+
+#: netshift-gtk.py:810
+msgid "Snapshot wird erstellt"
+msgstr "Creating snapshot"
+
+#: netshift-gtk.py:870
+msgid "Snapshot im Dateimanager geöffnet"
+msgstr "Snapshot opened in the file manager"
+
+#: netshift-gtk.py:910
+msgid "Bitte bald neu starten, damit alle Änderungen wirksam werden"
+msgstr "Please reboot soon so that all changes take effect"
+
+#: netshift-gtk.py:918
+msgid "Vorgang läuft noch"
+msgstr "Operation still running"
+
+#: netshift-gtk.py:919
+msgid "Beim Beenden wird der laufende Vorgang abgebrochen. Ein abgebrochener Snapshot wird beim nächsten Mal fortgesetzt."
+msgstr "Quitting cancels the running operation. A cancelled snapshot will be resumed next time."
+
+#: netshift-gtk.py:978
+msgid "Keine Laufwerke gefunden"
+msgstr "No drives found"
+
+#: netshift-gtk.py:1074
+msgid "Persönliche Dateien werden zurückgesetzt"
+msgstr "Personal files will be reset"
+
+#: netshift-gtk.py:1074
+msgid "Persönliche Dateien bleiben unverändert"
+msgstr "Personal files stay unchanged"
+
+#: netshift-gtk.py:1075
+msgid "Dieser Snapshot enthält /home."
+msgstr "This snapshot contains /home."
+
+#: netshift-gtk.py:1076
+msgid "/home und /root sind nicht Teil dieses Snapshots und werden nicht angefasst."
+msgstr "/home and /root are not part of this snapshot and will not be touched."
+
+#: netshift-gtk.py:1240
+msgid "Vergleiche Snapshot mit dem Ziel…"
+msgstr "Comparing snapshot with the target…"
+
+#: netshift-gtk.py:1320
+msgid "wird neu angelegt"
+msgstr "will be created"
+
+#: netshift-gtk.py:1321
+msgid "wird überschrieben"
+msgstr "will be overwritten"
+
+#: netshift-gtk.py:1322
+msgid "wird gelöscht"
+msgstr "will be deleted"
+
+#: netshift-gtk.py:1431
+msgid "Im Snapshot auswählen"
+msgstr "Select in snapshot"
+
+#: netshift-gtk.py:1480
+msgid "Aktuelle Dateien überschreiben?"
+msgstr "Overwrite current files?"
+
+#: netshift-gtk.py:1509
+msgid "Vollständiger Snapshot"
+msgstr "Full snapshot"
+
+#: netshift-gtk.py:1510
+msgid "Ja"
+msgstr "Yes"
+
+#: netshift-gtk.py:1510
+msgid "Nein"
+msgstr "No"
+
+#: netshift-gtk.py:1511 netshift-gui.py:926
+msgid "Unvollständig"
+msgstr "Incomplete"
+
+#: netshift-gtk.py:1680
+msgid "Passwort"
+msgstr "Password"
+
+#: netshift-gtk.py:1956
+msgid "Sicherungsziel ist noch unvollständig"
+msgstr "Backup target is still incomplete"
+
+#: netshift-gtk.py:405
+msgid "Wird abgeschlossen…"
+msgstr "Finishing…"
+
+#: netshift-gtk.py:612
+msgid "Keine Snapshots gefunden"
+msgstr "No snapshots found"
+
+#: netshift-gtk.py:613
+msgid "In dieser Sicherung liegen keine Snapshots."
+msgstr "There are no snapshots in this backup."
+
+#: netshift-gtk.py:615
+msgid "Noch keine Snapshots"
+msgstr "No snapshots yet"
+
+#: netshift-gtk.py:616
+msgid "Erstelle jetzt den ersten Snapshot. Er überträgt das komplette System – das dauert einmalig etwas länger, danach nur noch Änderungen."
+msgstr "Create the first snapshot now. It transfers the complete system – this takes a bit longer once, after that only changes are transferred."
+
+#: netshift-gtk.py:646
+msgid "Jetzt sichern"
+msgstr "Back up now"
+
+#: netshift-gtk.py:669
+#, python-brace-format
+msgid "Das Image ist zurzeit {cur} GiB groß. Es belegt auf dem NAS weiterhin nur so viel Platz, wie tatsächlich gesichert ist. Verkleinern ist später nicht möglich."
+msgstr "The image is currently {cur} GiB. On the NAS it still only uses as much space as is actually backed up. It cannot be shrunk later."
+
+#: netshift-gtk.py:676
+msgid "Image wird vergrößert"
+msgstr "Enlarging image"
+
+#: netshift-gtk.py:725 netshift-gui.py:279
+msgid "Image-Container"
+msgstr "Image container"
+
+#: netshift-gtk.py:820
+#, python-brace-format
+msgid ""
+"{0}\n"
+"{1}\n"
+"\n"
+"Der Snapshot wird endgültig entfernt."
+msgstr ""
+"{0}\n"
+"{1}\n"
+"\n"
+"The snapshot will be removed permanently."
+
+#: netshift-gtk.py:826
+msgid "Snapshot wird gelöscht"
+msgstr "Deleting snapshot"
+
+#: netshift-gtk.py:854
+msgid "Einbinden fehlgeschlagen: "
+msgstr "Mounting failed: "
+
+#: netshift-gtk.py:895
+#, python-brace-format
+msgid "Das System wird in {0} Sekunden neu gestartet, damit alle Änderungen wirksam werden."
+msgstr "The system will reboot in {0} seconds so that all changes take effect."
+
+#: netshift-gtk.py:1049
+msgid "Wurzel des Zielsystems"
+msgstr "Root of the target system"
+
+#: netshift-gtk.py:1112
+msgid "Das Passwort war falsch. "
+msgstr "The password was wrong. "
+
+#: netshift-gtk.py:1127
+msgid "Entsperre…"
+msgstr "Unlocking…"
+
+#: netshift-gtk.py:1367
+#, python-brace-format
+msgid "Aus dem Snapshot vom {0}"
+msgstr "From the snapshot of {0}"
+
+#: netshift-gtk.py:1414
+msgid "Bitte einen absoluten Pfad angeben (beginnt mit /)"
+msgstr "Please enter an absolute path (starting with /)"
+
+#: netshift-gtk.py:1463
+msgid "Bitte mindestens eine Datei oder einen Ordner angeben"
+msgstr "Please specify at least one file or folder"
+
+#: netshift-gtk.py:1533
+#, python-brace-format
+msgid "Speicherplatz {where}"
+msgstr "Disk usage {where}"
+
+#: netshift-gtk.py:1607
+msgid "Berechnung fehlgeschlagen: "
+msgstr "Calculation failed: "
+
+#: netshift-gtk.py:1680
+msgid " (gespeichert – leer lassen zum Behalten)"
+msgstr " (saved – leave empty to keep)"
+
+#: netshift-gtk.py:1836
+#, python-brace-format
+msgid "Die letzten {0} behalten"
+msgstr "Keep the last {0}"
+
+#: netshift-gtk.py:617
+msgid "Ersten Snapshot erstellen"
+msgstr "Create first snapshot"
+
+#: netshift-gtk.py:711
+#, python-brace-format
+msgid "Rechner: {0}"
+msgstr "Computer: {0}"
+
+#: netshift-gtk.py:725
+msgid " · verschlüsselt"
+msgstr " · encrypted"
+
+#: netshift-gtk.py:872
+#, python-brace-format
+msgid "Eingebunden unter {path}"
+msgstr "Mounted at {path}"
+
+#: netshift-gtk.py:1039
+#, python-brace-format
+msgid "Systempartition von „{0}“ auswählen – das Laufwerk-Symbol rechts listet alle Partitionen (Größe, Dateisystem, Name)"
+msgstr "Select the system partition of “{0}” – the drive icon on the right lists all partitions (size, file system, name)"
+
+#: netshift-gtk.py:1113
+#, python-brace-format
+msgid "{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner beim Starten entsperrst."
+msgstr "{dev} is encrypted. Enter the password you use to unlock the computer at startup."
+
+#: netshift-gtk.py:1154
+msgid "Bitte Laufwerk oder Ordner angeben"
+msgstr "Please specify a drive or folder"
+
+#: netshift-gtk.py:1175
+#, python-brace-format
+msgid "Vorschau: {0}"
+msgstr "Preview: {0}"
+
+#: netshift-gtk.py:1211
+msgid "Wiederhergestellt – bitte bald neu starten"
+msgstr "Restored – please reboot soon"
+
+#: netshift-gtk.py:1355
+#, python-brace-format
+msgid " Außerdem werden bei {attr} Einträgen nur Zeitstempel/Rechte angepasst."
+msgstr " In addition, only timestamps/permissions are adjusted for {attr} entries."
+
+#: netshift-gtk.py:1371
+msgid "Ordner"
+msgstr "Folder"
+
+#: netshift-gtk.py:1481
+#, python-brace-format
+msgid "{0} Element(e) werden an {dest} zurückgeschrieben."
+msgstr "{0} item(s) will be written back to {dest}."
+
+#: netshift-gtk.py:1511
+msgid "In Ordnung"
+msgstr "OK"
+
+#: netshift-gtk.py:1511
+msgid "Mit Warnungen"
+msgstr "With warnings"
+
+#: netshift-gtk.py:1611
+#, python-brace-format
+msgid "Berechnet {0}"
+msgstr "Calculated {0}"
+
+#: netshift-gtk.py:1624
+msgid "Kommentar gespeichert"
+msgstr "Comment saved"
+
+#: netshift-gtk.py:737
+#, python-brace-format
+msgid "{0} frei"
+msgstr "{0} free"
+
+#: netshift-gtk.py:745
+#, python-brace-format
+msgid "von {0}"
+msgstr "of {0}"
+
+#: netshift-gtk.py:811
+msgid "Snapshot erstellt"
+msgstr "Snapshot created"
+
+#: netshift-gtk.py:1216
+msgid "Herunterfahren"
+msgstr "Shut down"
+
+#: netshift-gtk.py:827
+msgid "Snapshot gelöscht"
+msgstr "Snapshot deleted"
+
+#: netshift-gtk.py:1214
+msgid "Fahre den Rechner jetzt herunter, ziehe den USB-Stick ab und starte ihn wieder – er bootet dann mit dem zurückgespielten System."
+msgstr "Shut down the computer now, unplug the USB stick and start it again – it will then boot the restored system."
+
+#: netshift-gtk.py:1445
+msgid "Bitte nur innerhalb des Snapshots auswählen"
+msgstr "Please only select items inside the snapshot"
+
+#: netshift-gtk.py:1478
+#, python-brace-format
+msgid "{0} Element(e) wiederhergestellt"
+msgstr "{0} item(s) restored"
+
+#: netshift-gtk.py:1136
+#, python-brace-format
+msgid "Entsperrt – Ziel ist jetzt {path}"
+msgstr "Unlocked – target is now {path}"
+
+#: netshift-gtk.py:677
+#, python-brace-format
+msgid "Image auf {0} GiB vergrößert"
+msgstr "Image enlarged to {0} GiB"
+
+#: netshift-gui.py:33
+msgid "Netzwerkfreigabe (SMB/Windows/NAS)"
+msgstr "Network share (SMB/Windows/NAS)"
+
+#: netshift-gui.py:33
+msgid "NFS-Freigabe"
+msgstr "NFS share"
+
+#: netshift-gui.py:34
+msgid "Linux-Server über SSH"
+msgstr "Linux server via SSH"
+
+#: netshift-gui.py:34
+msgid "Lokales Laufwerk / USB"
+msgstr "Local drive / USB"
+
+#: netshift-gui.py:71
+msgid "netshift – System-Snapshots"
+msgstr "netshift – System snapshots"
+
+#: netshift-gui.py:295
+msgid "Kommentar (optional):"
+msgstr "Comment (optional):"
+
+#: netshift-gui.py:456
+msgid "Hinweis: Home-Verzeichnisse bleiben unverändert."
+msgstr "Note: home directories stay unchanged."
+
+#: netshift-gui.py:457
+msgid "Achtung: Dieser Snapshot enthält auch /home – persönliche Dateien werden zurückgesetzt!"
+msgstr "Caution: this snapshot also contains /home – personal files will be reset!"
+
+#: netshift-gui.py:723
+msgid "Name dieses Rechners:"
+msgstr "Name of this computer:"
+
+#: netshift-gui.py:741 netshift-gui.py:753 netshift-gui.py:759
+msgid "Server (Name/IP):"
+msgstr "Server (name/IP):"
+
+#: netshift-gui.py:742
+msgid "Freigabe (z.B. backup):"
+msgstr "Share (e.g. backup):"
+
+#: netshift-gui.py:743
+msgid "Benutzer (leer = Gast):"
+msgstr "User (empty = guest):"
+
+#: netshift-gui.py:744
+msgid "Passwort:"
+msgstr "Password:"
+
+#: netshift-gui.py:747
+msgid "Domäne (optional):"
+msgstr "Domain (optional):"
+
+#: netshift-gui.py:748
+msgid "SMB-Version:"
+msgstr "SMB version:"
+
+#: netshift-gui.py:754
+msgid "Export (z.B. /volume1/backup):"
+msgstr "Export (e.g. /volume1/backup):"
+
+#: netshift-gui.py:760
+msgid "Benutzer:"
+msgstr "User:"
+
+#: netshift-gui.py:761
+msgid "Port:"
+msgstr "Port:"
+
+#: netshift-gui.py:762
+msgid "Pfad auf dem Server:"
+msgstr "Path on the server:"
+
+#: netshift-gui.py:763 netshift-gui.py:797
+msgid "Schlüsseldatei:"
+msgstr "Key file:"
+
+#: netshift-gui.py:793
+msgid "Max. Image-Größe (GiB):"
+msgstr "Max. image size (GiB):"
+
+#: netshift-gui.py:798
+msgid "Zusätzliche Mount-Optionen:"
+msgstr "Additional mount options:"
+
+#: netshift-gui.py:98
+msgid "➕ Erstellen"
+msgstr "➕ Create"
+
+#: netshift-gui.py:98
+msgid "↺ Wiederherstellen"
+msgstr "↺ Restore"
+
+#: netshift-gui.py:99
+msgid "📄 Dateien zurückholen"
+msgstr "📄 Restore files"
+
+#: netshift-gui.py:99
+msgid "🗑 Löschen"
+msgstr "🗑 Delete"
+
+#: netshift-gui.py:100
+msgid "📂 Durchsuchen"
+msgstr "📂 Browse"
+
+#: netshift-gui.py:100
+msgid "⚙ Einstellungen"
+msgstr "⚙ Settings"
+
+#: netshift-gui.py:101
+msgid "⟳ Aktualisieren"
+msgstr "⟳ Refresh"
+
+#: netshift-gui.py:110
+msgid "Snapshot"
+msgstr "Snapshot"
+
+#: netshift-gui.py:122
+msgid "Ziel: –"
+msgstr "Target: –"
+
+#: netshift-gui.py:131 netshift-gui.py:159
+msgid "Bereit"
+msgstr "Ready"
+
+#: netshift-gui.py:134
+msgid "Protokoll"
+msgstr "Log"
+
+#: netshift-gui.py:163
+msgid "Bitte warten"
+msgstr "Please wait"
+
+#: netshift-gui.py:163
+msgid "Es läuft bereits ein Vorgang."
+msgstr "An operation is already running."
+
+#: netshift-gui.py:239 netshift-gui.py:245
+msgid "Auswahl"
+msgstr "Selection"
+
+#: netshift-gui.py:239
+msgid "Bitte zuerst einen Snapshot in der Liste auswählen."
+msgstr "Please select a snapshot in the list first."
+
+#: netshift-gui.py:292
+msgid "Lade Snapshots…"
+msgstr "Loading snapshots…"
+
+#: netshift-gui.py:298
+msgid "Erstelle Snapshot…"
+msgstr "Creating snapshot…"
+
+#: netshift-gui.py:307
+msgid "Lösche…"
+msgstr "Deleting…"
+
+#: netshift-gui.py:314
+msgid "Dauer (s)"
+msgstr "Duration (s)"
+
+#: netshift-gui.py:315
+msgid "Basis (inkrementell zu)"
+msgstr "Based on (incremental to)"
+
+#: netshift-gui.py:318
+msgid ""
+"\n"
+"\n"
+"Kommentar ändern:"
+msgstr ""
+"\n"
+"\n"
+"Change comment:"
+
+#: netshift-gui.py:329 netshift-gui.py:821 netshift-gui.py:229
+msgid "Fehler"
+msgstr "Error"
+
+#: netshift-gui.py:340
+msgid "SSH-Ziel"
+msgstr "SSH target"
+
+#: netshift-gui.py:340
+msgid "Snapshots liegen auf dem SSH-Server. Bitte 'Dateien zurückholen' verwenden."
+msgstr "Snapshots are stored on the SSH server. Please use 'Restore files'."
+
+#: netshift-gui.py:347
+msgid "Durchsuchen"
+msgstr "Browse"
+
+#: netshift-gui.py:371
+msgid "Keine Änderungen."
+msgstr "No changes."
+
+#: netshift-gui.py:427
+msgid "Laufendes System wiederherstellen (wie Timeshift, danach Neustart)"
+msgstr "Restore the running system (like Timeshift, reboot afterwards)"
+
+#: netshift-gui.py:448
+msgid "Vorher Sicherheits-Snapshot des aktuellen Zustands anlegen"
+msgstr "Create a safety snapshot of the current state first"
+
+#: netshift-gui.py:450
+msgid "Danach automatisch neu starten"
+msgstr "Reboot automatically afterwards"
+
+#: netshift-gui.py:451
+msgid "/etc/fstab und /etc/crypttab des Ziels behalten (bei geänderten Partitionen/UUIDs)"
+msgstr "Keep /etc/fstab and /etc/crypttab of the target (if partitions/UUIDs have changed)"
+
+#: netshift-gui.py:452
+msgid "GRUB-Konfiguration im Ziel neu erzeugen (grub-mkconfig)"
+msgstr "Regenerate the GRUB configuration in the target (grub-mkconfig)"
+
+#: netshift-gui.py:473
+msgid "Zielverzeichnis (Wurzel des Zielsystems)"
+msgstr "Target directory (root of the target system)"
+
+#: netshift-gui.py:484 netshift-gui.py:626
+msgid "Ziel fehlt"
+msgstr "Target missing"
+
+#: netshift-gui.py:484
+msgid "Bitte Laufwerk oder Verzeichnis angeben."
+msgstr "Please specify a drive or directory."
+
+#: netshift-gui.py:525
+msgid "Berechne Änderungen…"
+msgstr "Calculating changes…"
+
+#: netshift-gui.py:556
+msgid "Stelle wieder her…"
+msgstr "Restoring…"
+
+#: netshift-gui.py:597
+msgid "Hinweis"
+msgstr "Note"
+
+#: netshift-gui.py:597
+msgid "Bei SSH-Zielen bitte Pfade direkt eintragen."
+msgstr "For SSH targets please enter paths directly."
+
+#: netshift-gui.py:621
+msgid "Keine Pfade"
+msgstr "No paths"
+
+#: netshift-gui.py:621
+msgid "Bitte mindestens einen Pfad angeben."
+msgstr "Please specify at least one path."
+
+#: netshift-gui.py:642
+msgid "Hole Dateien zurück…"
+msgstr "Restoring files…"
+
+#: netshift-gui.py:668
+msgid "Dateien & Ausschlüsse"
+msgstr "Files & exclusions"
+
+#: netshift-gui.py:757
+msgid "SSH (rsync über ssh)"
+msgstr "SSH (rsync over ssh)"
+
+#: netshift-gui.py:65
+msgid ", eingehängt: "
+msgstr ", mounted: "
+
+#: netshift-gui.py:245
+msgid "Bitte genau einen Snapshot auswählen."
+msgstr "Please select exactly one snapshot."
+
+#: netshift-gui.py:255
+msgid "Ziel: "
+msgstr "Target: "
+
+#: netshift-gui.py:291
+msgid "Hinweis: ein unterbrochener Snapshot wird beim nächsten Erstellen fortgesetzt."
+msgstr "Note: an interrupted snapshot will be resumed the next time one is created."
+
+#: netshift-gui.py:305
+msgid ""
+"Folgende Snapshots endgültig löschen?\n"
+"\n"
+msgstr ""
+"Permanently delete the following snapshots?\n"
+"\n"
+
+#: netshift-gui.py:321
+msgid "Speichere…"
+msgstr "Saving…"
+
+#: netshift-gui.py:377
+msgid "Beenden"
+msgstr "Quit"
+
+#: netshift-gui.py:377
+msgid "Ein Vorgang läuft noch. Er läuft im Hintergrund weiter. Trotzdem schließen?"
+msgstr "An operation is still running. It will continue in the background. Close anyway?"
+
+#: netshift-gui.py:524
+msgid "Vorschau – Änderungen bei Wiederherstellung"
+msgstr "Preview – changes on restore"
+
+#: netshift-gui.py:550
+msgid "Wiederherstellung abgeschlossen. Das System wird jetzt neu gestartet."
+msgstr "Restore complete. The system will now reboot."
+
+#: netshift-gui.py:563
+#, python-brace-format
+msgid "Dateien aus {0} zurückholen"
+msgstr "Restore files from {0}"
+
+#: netshift-gui.py:626
+msgid "Bitte Zielordner angeben."
+msgstr "Please specify a target folder."
+
+#: netshift-gui.py:634
+msgid "Berechne…"
+msgstr "Calculating…"
+
+#: netshift-gui.py:637
+msgid "Überschreiben?"
+msgstr "Overwrite?"
+
+#: netshift-gui.py:637
+msgid "Die aktuellen Dateien an diesen Pfaden werden überschrieben. Fortfahren?"
+msgstr "The current files at these paths will be overwritten. Continue?"
+
+#: netshift-gui.py:828
+#, python-brace-format
+msgid ""
+"Diesen öffentlichen Schlüssel auf dem Server in ~/.ssh/authorized_keys eintragen:\n"
+"\n"
+"{pub}\n"
+"\n"
+"Oder im Terminal einmalig ausführen (fragt das Server-Passwort ab):\n"
+"\n"
+"sudo ssh-copy-id -i {key}.pub -p {0} {host}"
+msgstr ""
+"Add this public key on the server to ~/.ssh/authorized_keys:\n"
+"\n"
+"{pub}\n"
+"\n"
+"Or run once in the terminal (asks for the server password):\n"
+"\n"
+"sudo ssh-copy-id -i {key}.pub -p {0} {host}"
+
+#: netshift-gui.py:921
+msgid "Ungültige Eingabe"
+msgstr "Invalid input"
+
+#: netshift-gui.py:155
+msgid "Arbeite…"
+msgstr "Working…"
+
+#: netshift-gui.py:275
+msgid "Warnungen"
+msgstr "Warnings"
+
+#: netshift-gui.py:275
+msgid "unvollständig"
+msgstr "incomplete"
+
+#: netshift-gui.py:279
+msgid "direkt"
+msgstr "direct"
+
+#: netshift-gui.py:347
+#, python-brace-format
+msgid ""
+"Snapshot eingebunden unter:\n"
+"{path}\n"
+"\n"
+"(Wird beim Schließen von netshift wieder ausgehängt.)"
+msgstr ""
+"Snapshot mounted at:\n"
+"{path}\n"
+"\n"
+"(It will be unmounted again when netshift is closed.)"
+
+#: netshift-gui.py:349
+#, python-brace-format
+msgid "Geöffnet: {path}"
+msgstr "Opened: {path}"
+
+#: netshift-gui.py:373 netshift-gui.py:829
+msgid "Schließen"
+msgstr "Close"
+
+#: netshift-gui.py:434
+msgid "Auf anderes Laufwerk/Verzeichnis (Neuinstallation, Live-USB, Ordner)"
+msgstr "To another drive/directory (new installation, live USB, folder)"
+
+#: netshift-gui.py:442 netshift-gui.py:779
+msgid "Ordner…"
+msgstr "Folder…"
+
+#: netshift-gui.py:493
+msgid "Verschlüsselte Partition"
+msgstr "Encrypted partition"
+
+#: netshift-gui.py:506
+msgid "Falsches Passwort"
+msgstr "Wrong password"
+
+#: netshift-gui.py:506
+msgid "Das Passwort war falsch."
+msgstr "The password was wrong."
+
+#: netshift-gui.py:535
+#, python-brace-format
+msgid ""
+"Snapshot {0} wird auf {what} zurückgespielt.\n"
+"\n"
+"Systemdateien werden auf den Stand des Snapshots gesetzt, seitdem neu hinzugekommene Dateien werden gelöscht.\n"
+"\n"
+"Fortfahren?"
+msgstr ""
+"Snapshot {0} will be restored to {what}.\n"
+"\n"
+"System files will be reset to the state of the snapshot, files added since then will be deleted.\n"
+"\n"
+"Continue?"
+
+#: netshift-gui.py:553
+msgid ""
+"Wiederherstellung abgeschlossen.\n"
+"Bitte so bald wie möglich neu starten!"
+msgstr ""
+"Restore complete.\n"
+"Please reboot as soon as possible!"
+
+#: netshift-gui.py:567
+msgid "Pfade (einer pro Zeile, absolut – z.B. /etc/pacman.conf oder /home/user/Dokumente):"
+msgstr "Paths (one per line, absolute – e.g. /etc/pacman.conf or /home/user/Documents):"
+
+#: netshift-gui.py:573
+msgid "Datei im Snapshot wählen…"
+msgstr "Choose file in snapshot…"
+
+#: netshift-gui.py:574
+msgid "Ordner im Snapshot wählen…"
+msgstr "Choose folder in snapshot…"
+
+#: netshift-gui.py:577
+msgid "An den Originalort zurückschreiben"
+msgstr "Write back to the original location"
+
+#: netshift-gui.py:581
+msgid "In anderen Ordner kopieren:"
+msgstr "Copy to another folder:"
+
+#: netshift-gui.py:586
+msgid "Ordner exakt angleichen (seitdem neu hinzugekommene Dateien darin löschen)"
+msgstr "Make folders match exactly (delete files added to them since then)"
+
+#: netshift-gui.py:641
+msgid "Dateien wiederhergestellt."
+msgstr "Files restored."
+
+#: netshift-gui.py:661
+msgid "Speichern"
+msgstr "Save"
+
+#: netshift-gui.py:662
+msgid "Speichern & Verbindung testen"
+msgstr "Save & test connection"
+
+#: netshift-gui.py:725
+msgid "Rettungssystem – nur wiederherstellen (USB-Stick: hier wird nie gesichert; Name muss wie beim Rechner lauten)"
+msgstr "Rescue system – restore only (USB stick: nothing is ever backed up here; the name must match the computer)"
+
+#: netshift-gui.py:727
+msgid "Zieltyp:"
+msgstr "Target type:"
+
+#: netshift-gui.py:745
+msgid "(leer lassen = gespeichertes Passwort behalten)"
+msgstr "(leave empty = keep the saved password)"
+
+#: netshift-gui.py:765
+msgid "Server-Benutzer ist nicht root (Besitzer/Rechte per --fake-super speichern)"
+msgstr "Server user is not root (store owners/permissions via --fake-super)"
+
+#: netshift-gui.py:767
+msgid "SSH-Schlüssel erzeugen/anzeigen…"
+msgstr "Create/show SSH key…"
+
+#: netshift-gui.py:773
+msgid "Pfad, Gerät oder UUID=…:"
+msgstr "Path, device or UUID=…:"
+
+#: netshift-gui.py:789
+msgid "Ablage:"
+msgstr "Storage location:"
+
+#: netshift-gui.py:799
+msgid "Automatisch: SMB/NFS/FAT/NTFS → Image-Container (erhält Rechte, Besitzer, Hardlinks); ext4/btrfs/SSH → direkt."
+msgstr "Automatic: SMB/NFS/FAT/NTFS → image container (keeps permissions, owners, hard links); ext4/btrfs/SSH → direct."
+
+#: netshift-gui.py:834
+msgid "Behalten"
+msgstr "Keep"
+
+#: netshift-gui.py:843
+msgid "Paketverwaltung (pacman/pamac)"
+msgstr "Package management (pacman/pamac)"
+
+#: netshift-gui.py:849
+msgid "Snapshot vor jeder Installation/Aktualisierung"
+msgstr "Snapshot before every installation/update"
+
+#: netshift-gui.py:852
+msgid "Mindestabstand (Minuten):"
+msgstr "Minimum interval (minutes):"
+
+#: netshift-gui.py:856
+msgid ""
+"\n"
+"Manuelle Snapshots und Sicherheits-Snapshots vor einer Wiederherstellung werden nie automatisch gelöscht.\n"
+"Geplante Snapshots werden nur erstellt, wenn das Ziel erreichbar ist; verpasste Termine werden nachgeholt."
+msgstr ""
+"\n"
+"Manual snapshots and safety snapshots before a restore are never deleted automatically.\n"
+"Scheduled snapshots are only created when the target is reachable; missed runs are caught up."
+
+#: netshift-gui.py:864
+msgid "Home-Verzeichnisse (/home, /root) mitsichern"
+msgstr "Also back up home directories (/home, /root)"
+
+#: netshift-gui.py:866
+msgid "Achtung: Wenn aktiviert, setzt eine System-Wiederherstellung auch persönliche Dateien zurück."
+msgstr "Caution: if enabled, a system restore also resets personal files."
+
+#: netshift-gui.py:868
+msgid "Pacman-Paketcache (/var/cache/pacman/pkg) auslassen"
+msgstr "Skip pacman package cache (/var/cache/pacman/pkg)"
+
+#: netshift-gui.py:872
+msgid "Mindestens freier Speicher auf dem Ziel (GiB):"
+msgstr "Minimum free space on the target (GiB):"
+
+#: netshift-gui.py:875
+msgid "Ausschlüsse (rsync-Muster, eines pro Zeile; z.B. /opt/spiele/*  oder  /home/*/Videos/*):"
+msgstr "Exclusions (rsync patterns, one per line; e.g. /opt/games/*  or  /home/*/Videos/*):"
+
+#: netshift-gui.py:89
+msgid "Willkommen"
+msgstr "Welcome"
+
+#: netshift-gui.py:89
+msgid ""
+"netshift ist noch nicht eingerichtet.\n"
+"Bitte zuerst das Sicherungsziel festlegen."
+msgstr ""
+"netshift is not set up yet.\n"
+"Please configure the backup target first."
+
+#: netshift-gui.py:280
+#, python-brace-format
+msgid "Ziel: {0}  [{mode}]  –  {1} Snapshots"
+msgstr "Target: {0}  [{mode}]  –  {1} snapshots"
+
+#: netshift-gui.py:432
+msgid "Rettungssystem: Bitte unten die Systempartition des Rechners wählen."
+msgstr "Rescue system: please choose the system partition of the computer below."
+
+#: netshift-gui.py:504
+msgid "Entsperren fehlgeschlagen"
+msgstr "Unlocking failed"
+
+#: netshift-gui.py:881
+msgid " sowie eingehängte Netzwerk- und Temp-Dateisysteme."
+msgstr " as well as mounted network and temporary file systems."
+
+#: netshift-gui.py:921
+#, python-brace-format
+msgid ""
+"Bitte Zahlenfelder prüfen.\n"
+"{e}"
+msgstr ""
+"Please check the number fields.\n"
+"{e}"
+
+#: netshift-gui.py:281
+#, python-brace-format
+msgid "Frei: {0} von {1}"
+msgstr "Free: {0} of {1}"
+
+#: netshift-gui.py:421
+#, python-brace-format
+msgid "Snapshot {0}"
+msgstr "Snapshot {0}"
+
+#: netshift-gui.py:422
+#, python-brace-format
+msgid "{0} · Kernel {1} · {2}"
+msgstr "{0} · kernel {1} · {2}"
+
+#: netshift-gui.py:494
+#, python-brace-format
+msgid ""
+"{v} ist verschlüsselt.\n"
+"Passwort zum Entsperren (wie beim Starten des Rechners):"
+msgstr ""
+"{v} is encrypted.\n"
+"Password to unlock (as when starting the computer):"
+
+#: netshift-gui.py:880
+msgid "Immer ausgeschlossen: "
+msgstr "Always excluded: "
+
+#: netshift-gui.py:945
+msgid "Verbindung"
+msgstr "Connection"
+
+#: netshift-gui.py:52
+msgid "verschlüsselt – wird beim Start entsperrt"
+msgstr "encrypted – will be unlocked at start"
+
+#: netshift-gui.py:207
+msgid "100%  – wird abgeschlossen…"
+msgstr "100%  – finishing…"
+
+#: netshift-gui.py:209
+#, python-brace-format
+msgid "{pct}%  {0}  Rest {1}"
+msgstr "{pct}%  {0}  {1} left"

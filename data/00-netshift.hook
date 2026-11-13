@@ -6,7 +6,7 @@ Type = Package
 Target = *
 
 [Action]
-Description = netshift: Snapshot vor Paketänderung (falls aktiviert)…
+Description = netshift: snapshot before package changes (if enabled)…
 Depends = rsync
 When = PreTransaction
 Exec = /usr/bin/netshift pacman-hook

@@ -1,5 +1,5 @@
 [Unit]
-Description=netshift: Snapshot beim Systemstart
+Description=netshift: snapshot at system start
 Wants=network-online.target
 After=network-online.target
 

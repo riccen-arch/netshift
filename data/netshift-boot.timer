@@ -1,5 +1,5 @@
 [Unit]
-Description=netshift: Boot-Snapshot 10 Minuten nach dem Start
+Description=netshift: boot snapshot 10 minutes after start
 
 [Timer]
 OnBootSec=10min

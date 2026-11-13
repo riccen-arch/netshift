@@ -30,7 +30,82 @@ import tempfile
 import threading
 import time
 
-VERSION = "1.1.5"
+# --------------------------------------------------------------------------- Sprache
+# Texte im Programm sind deutsch; andere Sprachen kommen aus po/<sprache>.po.
+# Erkennung über LANGUAGE/LC_ALL/LC_MESSAGES/LANG; NETSHIFT_LANG überschreibt.
+
+def _detect_lang():
+    for var in ("NETSHIFT_LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        val = os.environ.get(var, "")
+        if val and val not in ("C", "POSIX") and not val.startswith("C."):
+            return val.split(":")[0].split("_")[0].split(".")[0].split("@")[0].lower() or "en"
+    return "en"
+
+
+def _po_unquote(s):
+    s = s.strip()
+    if len(s) >= 2 and s[0] == s[-1] == '"':
+        s = s[1:-1]
+    out, i = [], 0
+    while i < len(s):
+        c = s[i]
+        if c == "\\" and i + 1 < len(s):
+            n = s[i + 1]
+            out.append({"n": "\n", "t": "\t", '"': '"', "\\": "\\"}.get(n, n))
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _load_po(path):
+    """Minimaler .po-Leser (msgid/msgstr, mehrzeilig, ohne Plural)."""
+    tr, cur, field, fuzzy = {}, {}, None, False
+    def flush():
+        if cur.get("msgid") and cur.get("msgstr") and not cur.get("fuzzy"):
+            tr[cur["msgid"]] = cur["msgstr"]
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("#,") and "fuzzy" in line:
+                fuzzy = True
+            elif line.startswith("msgid "):
+                flush()
+                cur, field = {"msgid": _po_unquote(line[6:]), "fuzzy": fuzzy}, "msgid"
+                fuzzy = False
+            elif line.startswith("msgstr "):
+                cur["msgstr"], field = _po_unquote(line[7:]), "msgstr"
+            elif line.startswith('"') and field:
+                cur[field] = cur.get(field, "") + _po_unquote(line)
+            elif not line.strip():
+                field = None
+    flush()
+    return tr
+
+
+LANG = _detect_lang()
+_TR = {}
+if LANG != "de":
+    for _d in (os.path.join(os.path.dirname(os.path.realpath(__file__)), "po"), "/usr/share/netshift/po"):
+        for _l in (LANG, "en"):
+            _p = os.path.join(_d, _l + ".po")
+            if os.path.exists(_p):
+                try:
+                    _TR = _load_po(_p)
+                except (OSError, UnicodeDecodeError):
+                    _TR = {}
+                break
+        if _TR:
+            break
+
+
+def _(text):
+    """Übersetzen (Deutsch ist die Ausgangssprache)."""
+    return _TR.get(text, text)
+
+
+VERSION = "1.1.6"
 ETC_DIR = os.environ.get("NETSHIFT_ETC", "/etc/netshift")
 CONFIG_PATH = os.environ.get("NETSHIFT_CONFIG", os.path.join(ETC_DIR, "config.json"))
 RUN_DIR = os.environ.get("NETSHIFT_RUNDIR", "/run/netshift")
@@ -44,8 +119,8 @@ INPROGRESS = ".in-progress"
 SNAP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
 
 TAG_NAMES = {
-    "O": "Manuell", "B": "Boot", "H": "Stündlich", "D": "Täglich",
-    "W": "Wöchentlich", "M": "Monatlich", "P": "Pacman", "R": "Vor Wiederherstellung",
+    "O": _('Manuell'), "B": _('Boot'), "H": _('Stündlich'), "D": _('Täglich'),
+    "W": _('Wöchentlich'), "M": _('Monatlich'), "P": "Pacman", "R": _('Vor Wiederherstellung'),
 }
 # (Konfig-Schlüssel, Tag, Intervall in Sekunden)
 LEVELS = [("hourly", "H", 3600), ("daily", "D", 86400),
@@ -135,8 +210,25 @@ def info(msg):
     print(msg, flush=True)
 
 
+def step(msg):
+    """Wichtiger Arbeitsschritt – die Oberfläche zeigt ihn in der Fortschrittsleiste an."""
+    print(("@@STEP " if GUI_MODE else "") + msg, flush=True)
+
+
 def warn(msg):
-    print("WARNUNG: " + msg, file=sys.stderr if not GUI_MODE else sys.stdout, flush=True)
+    if GUI_MODE:
+        for line in str(msg).splitlines() or [""]:
+            print("@@WARN " + line, flush=True)
+    else:
+        print(_("WARNUNG: ") + msg, file=sys.stderr, flush=True)
+
+
+def report_error(msg):
+    if GUI_MODE:
+        for line in str(msg).splitlines() or [""]:
+            print("@@ERROR " + line, flush=True)
+    else:
+        print(_("FEHLER: ") + str(msg), file=sys.stderr, flush=True)
 
 
 def run(cmd, check=True, capture=False, input=None, quiet=False, env=None, timeout=None):
@@ -148,18 +240,18 @@ def run(cmd, check=True, capture=False, input=None, quiet=False, env=None, timeo
                            stderr=subprocess.PIPE if capture else None,
                            text=True, timeout=timeout)
     except FileNotFoundError:
-        die(f"Programm nicht gefunden: {cmd[0]} – bitte installieren.")
+        die(_('Programm nicht gefunden: {0} – bitte installieren.').format(cmd[0]))
     except subprocess.TimeoutExpired:
-        p = subprocess.CompletedProcess(cmd, 124, "", f"Zeitüberschreitung nach {timeout} s")
+        p = subprocess.CompletedProcess(cmd, 124, "", _('Zeitüberschreitung nach {timeout} s').format(timeout=timeout))
     if check and p.returncode != 0:
         err = (p.stderr or "").strip() if capture else ""
-        die(f"Befehl fehlgeschlagen ({p.returncode}): {' '.join(cmd)}" + (f"\n{err}" if err else ""))
+        die(_('Befehl fehlgeschlagen ({0}): {1}').format(p.returncode, ' '.join(cmd)) + (f"\n{err}" if err else ""))
     return p
 
 
 def need(prog, pkg=None):
     if shutil.which(prog) is None:
-        die(f"'{prog}' fehlt. Installieren mit: sudo pacman -S {pkg or prog}")
+        die(_("'{prog}' fehlt. Installieren mit: sudo pacman -S {0}").format(pkg or prog, prog=prog))
 
 
 def hostname():
@@ -246,7 +338,7 @@ def mountinfo():
     try:
         with open("/proc/self/mountinfo") as f:
             for line in f:
-                left, _, right = line.partition(" - ")
+                left, _x, right = line.partition(" - ")
                 mp = left.split()[4]
                 fstype = right.split()[0]
                 mp = re.sub(r"\\(\d{3})", lambda m: chr(int(m.group(1), 8)), mp)
@@ -286,8 +378,7 @@ def reachable(probe, timeout=4):
 
 
 def offline_msg(probe):
-    return (f"Das Sicherungsziel {probe[0]} ist nicht erreichbar. Ist das NAS eingeschaltet und der "
-            "Rechner mit dem Heimnetz verbunden?")
+    return (_('Das Sicherungsziel {0} ist nicht erreichbar. Ist das NAS eingeschaltet und der Rechner mit dem Heimnetz verbunden?').format(probe[0]))
 
 
 def route_info(host):
@@ -410,9 +501,9 @@ def health(cfg, st=None, now=None):
     last = st.get("last_success")
     err = st.get("last_error")
     if err and err.get("kind") != "offline" and (not last or err["time"] > last):
-        when = dt.datetime.fromtimestamp(err["time"]).strftime("%d.%m. %H:%M")
-        title = ("Letzte automatische Sicherung fehlgeschlagen" if err.get("source") != "manual"
-                 else "Letzte Sicherung fehlgeschlagen")
+        when = dt.datetime.fromtimestamp(err["time"]).strftime(_("%d.%m. %H:%M"))
+        title = (_('Letzte automatische Sicherung fehlgeschlagen') if err.get("source") != "manual"
+                 else _('Letzte Sicherung fehlgeschlagen'))
         out.append({"kind": "space" if err.get("kind") == "space" else "error", "level": "error",
                     "title": title, "body": f"{when}: {err['msg'].splitlines()[0]}"})
     days = float((cfg.get("notify") or {}).get("overdue_days", 3) or 0)
@@ -421,17 +512,17 @@ def health(cfg, st=None, now=None):
         ref = last or st.get("first_seen")
         if ref and now - ref > days * 86400:
             age = int((now - ref) // 86400)
-            body = (f"Die letzte erfolgreiche Sicherung ist {age} Tage alt." if last
-                    else f"Seit {age} Tagen wurde noch keine Sicherung erstellt.")
+            body = (_('Die letzte erfolgreiche Sicherung ist {age} Tage alt.').format(age=age) if last
+                    else _('Seit {age} Tagen wurde noch keine Sicherung erstellt.').format(age=age))
             if err and err.get("kind") == "offline" and (not last or err["time"] > last):
-                body += " Das Sicherungsziel war zuletzt nicht erreichbar."
-            out.append({"kind": "overdue", "level": "warning", "title": "Sicherung überfällig", "body": body})
+                body += _(' Das Sicherungsziel war zuletzt nicht erreichbar.')
+            out.append({"kind": "overdue", "level": "warning", "title": _('Sicherung überfällig'), "body": body})
     sp = st.get("space") or {}
     if sp.get("total") and not any(p["kind"] == "space" for p in out):
         warn_at = max(2 * space_need(cfg, sp["total"]), 0.15 * sp["total"])
         if sp["free"] < warn_at:
-            out.append({"kind": "space", "level": "warning", "title": "Sicherungsziel fast voll",
-                        "body": f"Noch {human(sp['free'])} von {human(sp['total'])} frei."})
+            out.append({"kind": "space", "level": "warning", "title": _('Sicherungsziel fast voll'),
+                        "body": _('Noch {0} von {1} frei.').format(human(sp['free']), human(sp['total']))})
     return out
 
 
@@ -501,8 +592,8 @@ def notify_health(cfg, st):
     # Entwarnung, wenn ein gemeldetes Problem behoben ist
     solved = [k for k in list(notified) if k in ("error", "overdue") and k not in current]
     if solved:
-        desktop_notify("netshift: Sicherung läuft wieder",
-                       "Die letzte Sicherung war erfolgreich." if st.get("last_success") else "Problem behoben.")
+        desktop_notify(_('netshift: Sicherung läuft wieder'),
+                       _('Die letzte Sicherung war erfolgreich.') if st.get("last_success") else _('Problem behoben.'))
     for k in list(notified):
         if k not in current:
             del notified[k]
@@ -517,8 +608,7 @@ class Lock:
             fcntl.flock(self.f, flags)
         except BlockingIOError:
             self.f.close()
-            die("Ein anderer netshift-Vorgang läuft bereits (z.B. ein geplanter Snapshot). "
-                "Bitte kurz warten und erneut versuchen.")
+            die(_('Ein anderer netshift-Vorgang läuft bereits (z.B. ein geplanter Snapshot). Bitte kurz warten und erneut versuchen.'), kind="busy")
 
     def release(self):
         try:
@@ -621,7 +711,7 @@ class SshStorage:
     def sh(self, script, input=None, check=True):
         p = run(self.ssh + [self.host, script], capture=True, input=input, check=False, quiet=True)
         if check and p.returncode != 0:
-            die(f"SSH-Befehl auf {self.host} fehlgeschlagen: {p.stderr.strip() or p.returncode}")
+            die(_('SSH-Befehl auf {0} fehlgeschlagen: {1}').format(self.host, p.stderr.strip() or p.returncode))
         return p
 
     def prepare(self):
@@ -722,21 +812,21 @@ class Target:
             return f"NFS {t['server']}:{t['export']}"
         if typ == "ssh":
             return f"SSH {t.get('ssh_user') or ''}@{t['server']}:{t['ssh_path']}"
-        return f"Lokal {t['path']}"
+        return _('Lokal {0}').format(t['path'])
 
     def validate(self):
         t = self.t
         typ = t.get("type")
         if typ == "local" and not t.get("path"):
-            die("Kein Sicherungsziel konfiguriert (Pfad fehlt). 'sudo netshift setup' ausführen.")
+            die(_("Kein Sicherungsziel konfiguriert (Pfad fehlt). 'sudo netshift setup' ausführen."))
         if typ == "smb" and not (t.get("server") and t.get("share")):
-            die("SMB-Ziel unvollständig (Server/Freigabe). 'sudo netshift setup' ausführen.")
+            die(_("SMB-Ziel unvollständig (Server/Freigabe). 'sudo netshift setup' ausführen."))
         if typ == "nfs" and not (t.get("server") and t.get("export")):
-            die("NFS-Ziel unvollständig (Server/Export). 'sudo netshift setup' ausführen.")
+            die(_("NFS-Ziel unvollständig (Server/Export). 'sudo netshift setup' ausführen."))
         if typ == "ssh" and not (t.get("server") and t.get("ssh_path")):
-            die("SSH-Ziel unvollständig (Server/Pfad). 'sudo netshift setup' ausführen.")
+            die(_("SSH-Ziel unvollständig (Server/Pfad). 'sudo netshift setup' ausführen."))
         if typ not in ("local", "smb", "nfs", "ssh"):
-            die(f"Unbekannter Zieltyp: {typ}")
+            die(_('Unbekannter Zieltyp: {typ}').format(typ=typ))
 
     # ---- Öffnen
     def open(self):
@@ -746,7 +836,7 @@ class Target:
         typ = self.t["type"]
         NET_PROBE = target_probe(self.t)
         if os.environ.get("NETSHIFT_TEST_PROBE"):            # nur für Tests
-            h, _, port = os.environ["NETSHIFT_TEST_PROBE"].rpartition(":")
+            h, _x, port = os.environ["NETSHIFT_TEST_PROBE"].rpartition(":")
             NET_PROBE = (h, int(port))
         if NET_PROBE and not reachable(NET_PROBE):
             die(offline_msg(NET_PROBE), kind="offline")
@@ -777,7 +867,7 @@ class Target:
             return False
         p = run(cmd + [mp], check=False, capture=True)
         if p.returncode != 0:
-            die(f"Einbinden fehlgeschlagen: {' '.join(cmd)} {mp}\n{p.stderr.strip()}")
+            die(_('Einbinden fehlgeschlagen: {0} {mp}\n{1}').format(' '.join(cmd), p.stderr.strip(), mp=mp))
         return True
 
     def _mount_share(self):
@@ -791,7 +881,7 @@ class Target:
                 self.mounted_share = self._mount(cmd, self.share_mp) or os.path.ismount(self.share_mp)
                 return self.share_mp
             if not os.path.isdir(p):
-                die(f"Zielverzeichnis existiert nicht: {p} (Laufwerk eingesteckt/eingebunden?)")
+                die(_('Zielverzeichnis existiert nicht: {p} (Laufwerk eingesteckt/eingebunden?)').format(p=p))
             return p
         if typ == "smb":
             need("mount.cifs", "cifs-utils")
@@ -818,8 +908,7 @@ class Target:
         c = self.t.get("container", "auto")
         typ = self.t["type"]
         if typ == "smb" and c == "direct":
-            die("SMB kann Linux-Besitzer/Rechte nicht zuverlässig speichern – "
-                "für SMB ist nur der Image-Container möglich (container: image/auto).")
+            die(_('SMB kann Linux-Besitzer/Rechte nicht zuverlässig speichern – für SMB ist nur der Image-Container möglich (container: image/auto).'))
         if c in ("image", "direct"):
             return c
         if typ in ("smb", "nfs"):
@@ -840,10 +929,9 @@ class Target:
         mapper_dev = "/dev/mapper/" + self.mapper
         if not os.path.exists(self.image_path) and self.rescue:
             others = sorted(f[:-4] for f in os.listdir(self.share_root) if f.endswith(".img"))
-            die(f"Auf dem Ziel gibt es keine Sicherung für den Rechner '{self.label}'."
-                + (f"\nVorhandene Rechner: {', '.join(others)}\nBitte in den Einstellungen unter "
-                   "„Name im Backup“ genau diesen Namen eintragen." if others
-                   else "\nIm Ordner netshift auf der Freigabe liegt keine Sicherung."))
+            die(_("Auf dem Ziel gibt es keine Sicherung für den Rechner '{0}'.").format(self.label)
+                + (_('\nVorhandene Rechner: {0}\nBitte in den Einstellungen unter „Name im Backup“ genau diesen Namen eintragen.').format(', '.join(others)) if others
+                   else _('\nIm Ordner netshift auf der Freigabe liegt keine Sicherung.')))
         if not os.path.exists(self.image_path):
             self._create_image(encrypt)
         dev = self.image_path
@@ -852,7 +940,7 @@ class Target:
             if not os.path.exists(mapper_dev):
                 key = t.get("key_file")
                 if not key or not os.path.exists(key):
-                    die(f"Schlüsseldatei fehlt: {key}. Ohne sie ist das verschlüsselte Image nicht lesbar.")
+                    die(_('Schlüsseldatei fehlt: {key}. Ohne sie ist das verschlüsselte Image nicht lesbar.').format(key=key))
                 run(["cryptsetup", "open", "--type", "luks", "--key-file", key,
                      self.image_path, self.mapper])
                 self.opened_crypt = True
@@ -860,8 +948,7 @@ class Target:
         # Dateisystemprüfung (schnell, wenn sauber)
         p = run(["e2fsck", "-p", dev], check=False, capture=True)
         if p.returncode >= 4:
-            die(f"Das Image-Dateisystem ist beschädigt (e2fsck {p.returncode}). "
-                f"Manuell prüfen: e2fsck -f {dev}\n{p.stderr.strip()}")
+            die(_('Das Image-Dateisystem ist beschädigt (e2fsck {0}). Manuell prüfen: e2fsck -f {dev}\n{1}').format(p.returncode, p.stderr.strip(), dev=dev))
         opts = "noatime" + ("" if encrypt else ",loop")
         run(["mount", "-o", opts, dev, self.image_mp])
         self.mounted_image = True
@@ -869,8 +956,7 @@ class Target:
     def _create_image(self, encrypt):
         t = self.t
         size = int(t.get("image_size_gb") or 100)
-        info(f"Erstelle Image-Container {self.image_path} ({size} GiB, wächst bei Bedarf "
-             f"bis zu dieser Größe – sparse)…")
+        step(_('Erstelle Image-Container {0} ({size} GiB, wächst bei Bedarf bis zu dieser Größe – sparse)…').format(self.image_path, size=size))
         tmp = self.image_path + ".creating"
         with open(tmp, "wb") as f:
             f.truncate(size * 1024 ** 3)
@@ -895,9 +981,7 @@ class Target:
                 fd = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
                 with os.fdopen(fd, "wb") as f:
                     f.write(secrets.token_bytes(64))
-                warn(f"Neuer Schlüssel erzeugt: {key}\n"
-                     "         UNBEDINGT SICHERN (z.B. USB-Stick/Passwortmanager)! "
-                     "Ohne diese Datei ist eine Wiederherstellung von einem Live-System unmöglich.")
+                warn(_('Neuer Schlüssel erzeugt: {key}\n         UNBEDINGT SICHERN (z.B. USB-Stick/Passwortmanager)! Ohne diese Datei ist eine Wiederherstellung von einem Live-System unmöglich.').format(key=key))
             run(["cryptsetup", "luksFormat", "--batch-mode", "--type", "luks2",
                  "--key-file", key, img])
             run(["cryptsetup", "open", "--type", "luks", "--key-file", key, img, self.mapper])
@@ -924,11 +1008,11 @@ def _umount(mp, fast=False):
         return
     if not fast:
         run(["sync", "-f", mp], check=False, capture=True, quiet=True, timeout=20)
-        for _ in range(3):
+        for _x in range(3):
             if run(["umount", mp], check=False, capture=True, timeout=20).returncode == 0:
                 return
             time.sleep(1)
-        warn(f"{mp} lässt sich nicht normal aushängen – wird verzögert ausgehängt.")
+        warn(_('{mp} lässt sich nicht normal aushängen – wird verzögert ausgehängt.').format(mp=mp))
     run(["umount", "-l", mp], check=False, capture=True, timeout=10)
 
 
@@ -961,6 +1045,8 @@ def snapshots(storage):
         inf["name"] = name
         inf.setdefault("tags", [])
         inf.setdefault("comment", "")
+        if inf["comment"] in ("Geplant", "Scheduled"):       # automatischer Kommentar → in der aktuellen Sprache
+            inf["comment"] = _("Geplant")
         if "epoch" not in inf:
             try:
                 inf["epoch"] = dt.datetime.strptime(name, TIME_FMT).timestamp()
@@ -975,7 +1061,7 @@ def snapshots(storage):
 def resolve(storage, ident):
     snaps = snapshots(storage)
     if not snaps:
-        die("Keine Snapshots vorhanden.")
+        die(_('Keine Snapshots vorhanden.'))
     if ident in ("latest", "last", "neuester"):
         return snaps[-1]
     if ident.isdigit() and int(ident) >= 1 and int(ident) <= len(snaps) and not SNAP_RE.match(ident):
@@ -986,7 +1072,7 @@ def resolve(storage, ident):
     matches = [s for s in snaps if s["name"].startswith(ident)]
     if len(matches) == 1:
         return matches[0]
-    die(f"Snapshot '{ident}' nicht gefunden. 'netshift list' zeigt alle.")
+    die(_("Snapshot '{ident}' nicht gefunden. 'netshift list' zeigt alle.").format(ident=ident))
 
 
 def build_excludes(cfg, storage=None, target=None):
@@ -1034,16 +1120,16 @@ def _net_watch(p, stop, state):
     while not stop.wait(5):
         if reachable(NET_PROBE, timeout=4):
             if down is not None:
-                print("@@PHASE Verbindung wieder da – geht weiter…" if GUI_MODE
-                      else "Verbindung zum Sicherungsziel wieder da.", flush=True)
+                print('@@PHASE ' + _('Verbindung wieder da – geht weiter…') if GUI_MODE
+                      else _('Verbindung zum Sicherungsziel wieder da.'), flush=True)
             down = None
             continue
         down = down or time.time() - 5
         gone = int(time.time() - down)
         if GUI_MODE:
-            print(f"@@PHASE Verbindung zum Sicherungsziel unterbrochen – warte… ({gone} s)", flush=True)
+            print('@@PHASE ' + _('Verbindung zum Sicherungsziel unterbrochen – warte… ({gone} s)').format(gone=gone), flush=True)
         elif gone < 10:
-            print("\nWARNUNG: Verbindung zum Sicherungsziel unterbrochen – warte…", flush=True)
+            print(_('\nWARNUNG: Verbindung zum Sicherungsziel unterbrochen – warte…'), flush=True)
         if gone >= NET_TIMEOUT:
             state["lost"] = gone
             p.terminate()
@@ -1059,7 +1145,7 @@ def run_rsync(cmd, lost_hint=""):
     if os.environ.get("NETSHIFT_DEBUG"):
         print("+ " + " ".join(shlex.quote(c) for c in cmd), flush=True)
     if GUI_MODE:
-        print("@@PHASE Dateiliste wird erstellt…", flush=True)
+        print('@@PHASE ' + _('Dateiliste wird erstellt…'), flush=True)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE if GUI_MODE else None,
                          stderr=subprocess.STDOUT if GUI_MODE else None)
     stop, state = threading.Event(), {}
@@ -1073,7 +1159,7 @@ def run_rsync(cmd, lost_hint=""):
     finally:
         stop.set()
     if state.get("lost"):
-        die(f"Die Verbindung zum Sicherungsziel ist abgebrochen (seit {state['lost']} s nicht erreichbar)."
+        die(_('Die Verbindung zum Sicherungsziel ist abgebrochen (seit {0} s nicht erreichbar).').format(state['lost'])
             + (" " + lost_hint if lost_hint else ""), kind="offline")
     return rc
 
@@ -1140,24 +1226,18 @@ def foreign_host(storage):
 def create_snapshot(cfg, target, storage, tags, comment=""):
     need("rsync")
     if cfg.get("rescue_mode"):
-        die("Rettungssystem: Auf diesem System werden keine Snapshots erstellt – sonst würde ein Abbild "
-            "des Rettungssystems zwischen den Sicherungen des eigentlichen Rechners landen.")
+        die(_('Rettungssystem: Auf diesem System werden keine Snapshots erstellt – sonst würde ein Abbild des Rettungssystems zwischen den Sicherungen des eigentlichen Rechners landen.'))
     other = foreign_host(storage)
     if other and not cfg.get("_allow_other_host"):
-        die(f"Die Snapshots in dieser Sicherung stammen vom Rechner '{other}', dieser Rechner heißt "
-            f"'{hostname()}'. Damit nicht versehentlich ein fremdes System (z.B. ein Rettungs-Stick) "
-            "zwischen den Sicherungen landet, wurde abgebrochen.\n"
-            "Falls du diesen Rechner nur umbenannt hast: sudo netshift create --allow-other-host")
+        die(_("Die Snapshots in dieser Sicherung stammen vom Rechner '{other}', dieser Rechner heißt '{0}'. Damit nicht versehentlich ein fremdes System (z.B. ein Rettungs-Stick) zwischen den Sicherungen landet, wurde abgebrochen.\nFalls du diesen Rechner nur umbenannt hast: sudo netshift create --allow-other-host").format(hostname(), other=other))
     free, total = storage.free()
     need_free = space_need(cfg, total)
     if total and free < need_free and cfg.get("auto_cleanup", True):
         cleanup_for_space(cfg, storage, need_free)
         free, total = storage.free()
     if total and free < need_free:
-        die(f"Zu wenig freier Speicher auf dem Sicherungsziel ({human(free)} frei, benötigt mindestens "
-            f"{human(need_free)}). "
-            + ("Image vergrößern (netshift → Hinweis „Vergrößern“ oder 'sudo netshift resize-image GRÖSSE') "
-               "oder alte Snapshots löschen." if target.mode == "image" else "Alte Snapshots löschen."),
+        die(_('Zu wenig freier Speicher auf dem Sicherungsziel ({0} frei, benötigt mindestens {1}). ').format(human(free), human(need_free))
+            + (_("Image vergrößern (netshift → Hinweis „Vergrößern“ oder 'sudo netshift resize-image GRÖSSE') oder alte Snapshots löschen.") if target.mode == "image" else _('Alte Snapshots löschen.')),
             kind="space")
     snaps = [s for s in snapshots(storage) if s["valid"]]
     prev = snaps[-1] if snaps else None
@@ -1170,28 +1250,27 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
     patterns = build_excludes(cfg, storage, target)
     exfile = write_exclude_file(patterns)
     started = time.time()
-    info(f"Erstelle Snapshot {name} [{','.join(tags)}] → {target.describe()}"
-         + (f" (inkrementell zu {prev['name']})" if prev else " (erster, vollständiger Snapshot)"))
+    step(_('Erstelle Snapshot {name} [{0}] → {1}').format(','.join(tags), target.describe(), name=name)
+         + (_(' (inkrementell zu {0})').format(prev['name']) if prev else _(' (erster, vollständiger Snapshot)')))
     try:
         cmd = rsync_base(cfg) + ["--delete", "--delete-excluded", "--exclude-from", exfile, "--stats"]
         cmd += storage.rsync_opts()
         if prev:
             cmd.append("--link-dest=" + storage.abs(prev["name"]) + "/localhost")
         cmd += [SOURCE.rstrip("/") + "/", storage.loc(INPROGRESS)]
-        rc = run_rsync(cmd, "Der angefangene Snapshot wird beim nächsten Mal fortgesetzt.")
+        rc = run_rsync(cmd, _('Der angefangene Snapshot wird beim nächsten Mal fortgesetzt.'))
     finally:
         os.unlink(exfile)
     if rc not in (0, 24):
         f2, t2 = storage.free()
         if t2 and f2 < max(0.01 * t2, 256 * 1024 ** 2):
-            die("Das Sicherungsziel ist voll – der Snapshot konnte nicht fertiggestellt werden. "
-                + ("Bitte das Image vergrößern oder alte Snapshots löschen." if target.mode == "image"
-                   else "Bitte alte Snapshots löschen."), kind="space")
+            die(_('Das Sicherungsziel ist voll – der Snapshot konnte nicht fertiggestellt werden. ')
+                + (_('Bitte das Image vergrößern oder alte Snapshots löschen.') if target.mode == "image"
+                   else _('Bitte alte Snapshots löschen.')), kind="space")
     if rc not in (0, 23, 24):
-        die(f"rsync ist mit Fehler {rc} abgebrochen. Der unvollständige Snapshot bleibt als "
-            f"'{INPROGRESS}' liegen und wird beim nächsten Lauf fortgesetzt.")
+        die(_("rsync ist mit Fehler {rc} abgebrochen. Der unvollständige Snapshot bleibt als '{INPROGRESS}' liegen und wird beim nächsten Lauf fortgesetzt.").format(rc=rc, INPROGRESS=INPROGRESS))
     if rc == 23:
-        warn("Einige Dateien konnten nicht gesichert werden (rsync 23) – Details siehe Ausgabe oben.")
+        warn(_('Einige Dateien konnten nicht gesichert werden (rsync 23) – Details siehe Ausgabe oben.'))
     inf = {
         "name": name,
         "created": dt.datetime.now().isoformat(timespec="seconds"),
@@ -1209,7 +1288,7 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
     }
     storage.write_info(INPROGRESS, inf)
     storage.rename(INPROGRESS, name)
-    info(f"Snapshot {name} erfolgreich erstellt ({inf['duration_s']} s).")
+    info(_('Snapshot {name} erfolgreich erstellt ({0} s).').format(inf['duration_s'], name=name))
     return inf
 
 
@@ -1249,24 +1328,23 @@ def cleanup_for_space(cfg, storage, need_free):
     if not candidates:
         return deleted
     if storage.remote:
-        info("Platzmangel: Bei SSH-Zielen werden Snapshots nicht automatisch gelöscht.")
+        info(_('Platzmangel: Bei SSH-Zielen werden Snapshots nicht automatisch gelöscht.'))
         return deleted
-    free, _ = storage.free()
-    info(f"Platzmangel ({human(free)} frei) – prüfe, ob das Löschen alter automatischer Snapshots reicht…")
+    free, _x = storage.free()
+    info(_('Platzmangel ({0} frei) – prüfe, ob das Löschen alter automatischer Snapshots reicht…').format(human(free)))
     possible = _freeable(storage, [x["name"] for x in candidates])
     if free + possible < need_free:
-        info(f"Das Löschen aller {len(candidates)} automatischen Snapshots würde nur {human(possible)} "
-             "freigeben und nicht reichen – es wird nichts gelöscht.")
+        info(_('Das Löschen aller {0} automatischen Snapshots würde nur {1} freigeben und nicht reichen – es wird nichts gelöscht.').format(len(candidates), human(possible)))
         return deleted
     for x in candidates:
-        free, _ = storage.free()
+        free, _x = storage.free()
         if free >= need_free:
             break
-        info(f"Platzmangel: lösche ältesten automatischen Snapshot {x['name']} ({','.join(x['tags'])})")
+        step(_('Platzmangel: lösche ältesten automatischen Snapshot {0} ({1})').format(x['name'], ','.join(x['tags'])))
         storage.delete(x["name"])
         deleted.append(x["name"])
     if deleted:
-        info(f"{len(deleted)} automatische(r) Snapshot(s) gelöscht, um Platz zu schaffen.")
+        info(_('{0} automatische(r) Snapshot(s) gelöscht, um Platz zu schaffen.').format(len(deleted)))
     return deleted
 
 
@@ -1289,7 +1367,7 @@ def prune(cfg, storage, extra_keep=None):
     deleted = []
     for name, s in changed.items():
         if not s["tags"]:
-            info(f"Lösche abgelaufenen Snapshot {name}")
+            step(_('Lösche abgelaufenen Snapshot {name}').format(name=name))
             storage.delete(name)
             deleted.append(name)
         else:
@@ -1343,7 +1421,7 @@ def unlock_device(dev, passphrase):
     need("cryptsetup")
     dev = real_device(dev)
     if not is_luks(dev):
-        die(f"{dev} ist nicht verschlüsselt.")
+        die(_('{dev} ist nicht verschlüsselt.').format(dev=dev))
     kids = luks_children(dev)
     if kids:
         return kids[0]
@@ -1355,10 +1433,10 @@ def unlock_device(dev, passphrase):
                        input=passphrase.encode() if isinstance(passphrase, str) else passphrase,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode == 2:
-        die("Falsches Passwort – bitte erneut versuchen.")
+        die(_('Falsches Passwort – bitte erneut versuchen.'), kind="badpass")
     if p.returncode != 0:
-        die(f"Entsperren fehlgeschlagen: {p.stderr.decode(errors='replace').strip() or p.returncode}")
-    for _ in range(20):               # auf udev warten
+        die(_('Entsperren fehlgeschlagen: {0}').format(p.stderr.decode(errors='replace').strip() or p.returncode))
+    for _x in range(20):               # auf udev warten
         if os.path.exists(path):
             break
         time.sleep(0.1)
@@ -1371,23 +1449,22 @@ def resolve_restore_device(dev):
         return dev
     kids = luks_children(dev)
     if kids:
-        info(f"{dev} ist verschlüsselt und bereits entsperrt – verwende {kids[0]}.")
+        info(_('{dev} ist verschlüsselt und bereits entsperrt – verwende {0}.').format(kids[0], dev=dev))
         return kids[0]
     if os.path.exists("/dev/mapper/" + mapper_name(dev)):
         return "/dev/mapper/" + mapper_name(dev)
     if not GUI_MODE and sys.stdin.isatty():
         import getpass
-        for _ in range(3):
-            pw = getpass.getpass(f"{dev} ist verschlüsselt. Passwort zum Entsperren: ")
+        for _x in range(3):
+            pw = getpass.getpass(_('{dev} ist verschlüsselt. Passwort zum Entsperren: ').format(dev=dev))
             try:
                 path = unlock_device(dev, pw)
-                info(f"Entsperrt: {path}")
+                info(_('Entsperrt: {path}').format(path=path))
                 return path
             except NetshiftError as e:
                 print(e, file=sys.stderr)
-        die("Entsperren fehlgeschlagen.")
-    die(f"{dev} ist verschlüsselt. Bitte zuerst entsperren – in netshift einfach in der Laufwerksliste auf "
-        f"die Partition mit dem Schloss klicken, oder im Terminal: sudo netshift unlock {dev}")
+        die(_('Entsperren fehlgeschlagen.'))
+    die(_('{dev} ist verschlüsselt. Bitte zuerst entsperren – in netshift einfach in der Laufwerksliste auf die Partition mit dem Schloss klicken, oder im Terminal: sudo netshift unlock {dev}').format(dev=dev))
 
 
 def cmd_unlock(cfg, args):
@@ -1395,9 +1472,9 @@ def cmd_unlock(cfg, args):
         pw = sys.stdin.buffer.read().rstrip(b"\r\n")
     elif sys.stdin.isatty():
         import getpass
-        pw = getpass.getpass(f"Passwort für {args.device}: ")
+        pw = getpass.getpass(_('Passwort für {0}: ').format(args.device))
     else:
-        die("Passwort fehlt (--stdin verwenden).")
+        die(_('Passwort fehlt (--stdin verwenden).'))
     print(unlock_device(args.device, pw), flush=True)
 
 
@@ -1405,20 +1482,19 @@ def cmd_lock(cfg, args):
     for d in args.devices:
         name = os.path.basename(d) if d.startswith("/dev/mapper/") else mapper_name(d)
         if not name.startswith("netshift-"):
-            die(f"{d} wurde nicht von netshift entsperrt – bitte selbst schließen.")
+            die(_('{d} wurde nicht von netshift entsperrt – bitte selbst schließen.').format(d=d))
         if os.path.exists("/dev/mapper/" + name):
             p = run(["cryptsetup", "close", name], check=False, capture=True)
             if p.returncode != 0:
-                warn(f"{name} konnte nicht geschlossen werden (noch eingebunden?)")
+                warn(_('{name} konnte nicht geschlossen werden (noch eingebunden?)').format(name=name))
                 continue
-        info(f"Gesperrt: {name}")
+        info(_('Gesperrt: {name}').format(name=name))
 
 
 def mount_restore_target(dev, readonly=False):
     p = run(["findmnt", "-rn", "-o", "TARGET", "--source", dev], check=False, capture=True, quiet=True)
     if "/" in (p.stdout or "").split():
-        die(f"{dev} ist das gerade laufende System. Bitte die Partition der Festplatte des Rechners "
-            "wählen, der wiederhergestellt werden soll.")
+        die(_('{dev} ist das gerade laufende System. Bitte die Partition der Festplatte des Rechners wählen, der wiederhergestellt werden soll.').format(dev=dev))
     mp = os.path.join(RUN_DIR, "target")
     os.makedirs(mp, mode=0o755, exist_ok=True)
     if os.path.ismount(mp):
@@ -1430,12 +1506,11 @@ def mount_restore_target(dev, readonly=False):
             and not os.path.isdir(os.path.join(mp, "etc")):
         _umount(mp)
         run(["mount", "-o", "subvol=@" + (",ro" if readonly else ""), dev, mp])
-        info("Btrfs erkannt – Subvolume '@' als Wurzel eingebunden.")
+        info(_("Btrfs erkannt – Subvolume '@' als Wurzel eingebunden."))
     if not readonly and not os.path.isdir(os.path.join(mp, "etc")) and os.listdir(mp) \
             and set(os.listdir(mp)) - {"lost+found"}:
         _umount(mp)
-        die(f"Auf {dev} liegt kein Linux-System (kein /etc), aber andere Daten. Zur Sicherheit "
-            "abgebrochen – bitte die richtige Partition wählen (die Systempartition des Rechners).")
+        die(_('Auf {dev} liegt kein Linux-System (kein /etc), aber andere Daten. Zur Sicherheit abgebrochen – bitte die richtige Partition wählen (die Systempartition des Rechners).').format(dev=dev))
     return mp
 
 
@@ -1459,20 +1534,18 @@ def restore(cfg, target, storage, snap, dest="/", dry_run=False, keep_fstab=Fals
         cmd += storage.rsync_opts()
         cmd += [storage.loc(snap["name"]), dest.rstrip("/") + "/"]
         rc = run_rsync(cmd, "" if dry_run else
-                       "Das Ziel ist jetzt nur teilweise wiederhergestellt. Bitte bei stabiler Verbindung "
-                       "(am besten per LAN-Kabel) erneut wiederherstellen – bereits übertragene Dateien "
-                       "werden dabei übersprungen.")
+                       _('Das Ziel ist jetzt nur teilweise wiederhergestellt. Bitte bei stabiler Verbindung (am besten per LAN-Kabel) erneut wiederherstellen – bereits übertragene Dateien werden dabei übersprungen.'))
     finally:
         os.unlink(exfile)
     if rc not in (0, 23, 24):
-        die(f"Wiederherstellung fehlgeschlagen (rsync {rc}).")
+        die(_('Wiederherstellung fehlgeschlagen (rsync {rc}).').format(rc=rc))
     if rc == 23:
-        warn("Einige Dateien konnten nicht wiederhergestellt werden (rsync 23).")
+        warn(_('Einige Dateien konnten nicht wiederhergestellt werden (rsync 23).'))
     return rc
 
 
 def update_grub(root):
-    info("Aktualisiere GRUB-Konfiguration im wiederhergestellten System…")
+    info(_('Aktualisiere GRUB-Konfiguration im wiederhergestellten System…'))
     chroot = shutil.which("arch-chroot") or shutil.which("manjaro-chroot")
     if chroot:
         run([chroot, root, "grub-mkconfig", "-o", "/boot/grub/grub.cfg"], check=False)
@@ -1520,12 +1593,12 @@ def confirm(prompt, args, strong=False):
     if getattr(args, "yes", False):
         return True
     if not sys.stdin.isatty():
-        die("Bestätigung nötig – mit --yes ausführen.")
+        die(_('Bestätigung nötig – mit --yes ausführen.'))
     if strong:
-        a = input(prompt + " Zum Fortfahren 'JA' eingeben: ")
-        return a.strip() == "JA"
+        a = input(prompt + _(" Zum Fortfahren 'JA' eingeben: "))
+        return a.strip().upper() in ("JA", _("JA").upper())
     a = input(prompt + " [j/N] ")
-    return a.strip().lower() in ("j", "ja", "y", "yes")
+    return a.strip().lower() in ("j", _("ja"), "y", "yes")
 
 
 def cmd_create(cfg, args):
@@ -1541,7 +1614,7 @@ def cmd_create(cfg, args):
             record_success(st)
             sync_status(s.storage, st)
     except NetshiftError as e:
-        if "anderer netshift-Vorgang" not in str(e):
+        if e.kind != "busy":
             record_failure(st, e, "manual")
         raise
     finally:
@@ -1551,9 +1624,9 @@ def cmd_create(cfg, args):
 
 def fmt_snap_row(i, s):
     tags = ",".join(s["tags"]) or "-"
-    st = "" if s["valid"] else " (UNVOLLSTÄNDIG)"
+    st = "" if s["valid"] else _(' (UNVOLLSTÄNDIG)')
     if s.get("status") == "warnings":
-        st = " (Warnungen)"
+        st = _(' (Warnungen)')
     return f"{i:>3}  {s['name']}  {tags:<8} {s.get('os', '')[:24]:<24} {s.get('comment', '')}{st}"
 
 
@@ -1569,28 +1642,28 @@ def cmd_list(cfg, args):
                 "free": free, "total": total, "in_progress": INPROGRESS in raw,
                 "health": health(cfg, st), "snapshots": snaps}, ensure_ascii=False))
             return
-        info(f"Ziel: {s.target.describe()}  [{s.target.mode}]  frei: {human(free)} von {human(total)}")
+        info(_('Ziel: {0}  [{1}]  frei: {2} von {3}').format(s.target.describe(), s.target.mode, human(free), human(total)))
         if not snaps:
-            info("Noch keine Snapshots vorhanden.")
+            info(_('Noch keine Snapshots vorhanden.'))
         else:
-            info("  Nr  Name                 Tags     System                   Kommentar")
+            info(_('  Nr  Name                 Tags     System                   Kommentar'))
             for i, sn in enumerate(snaps, 1):
                 info(fmt_snap_row(i, sn))
         if INPROGRESS in raw:
-            info("Hinweis: Ein unterbrochener Snapshot liegt vor und wird beim nächsten Lauf fortgesetzt.")
+            info(_('Hinweis: Ein unterbrochener Snapshot liegt vor und wird beim nächsten Lauf fortgesetzt.'))
 
 
 def cmd_delete(cfg, args):
     with Session(cfg) as s:
         targets = [resolve(s.storage, n) for n in args.snapshots]
         names = ", ".join(t["name"] for t in targets)
-        if not confirm(f"Snapshots löschen: {names}?", args):
-            info("Abgebrochen.")
+        if not confirm(_('Snapshots löschen: {names}?').format(names=names), args):
+            info(_('Abgebrochen.'))
             return
         for t in targets:
-            info(f"Lösche {t['name']} …")
+            step(_('Lösche {0} …').format(t['name']))
             s.storage.delete(t["name"])
-        info("Fertig.")
+        info(_('Fertig.'))
 
 
 def _size_key(storage):
@@ -1665,16 +1738,15 @@ def cmd_size(cfg, args):
         res = {}
         for sn in targets:
             if not args.json:
-                info(f"Berechne {sn['name']} …")
+                info(_('Berechne {0} …').format(sn['name']))
             res[sn["name"]] = snapshot_size(s.storage, sn, refresh=args.refresh)
         if args.json:
             print(json.dumps(res))
             return
-        info("Snapshot             Nur dieser   Gesamtumfang   Dateien")
+        info(_('Snapshot             Nur dieser   Gesamtumfang   Dateien'))
         for name, r in res.items():
             info(f"{name}  {human(r['exclusive']):>11}  {human(r['total']):>13}  {r['files']:>8}")
-        info("'Nur dieser' = Platz, der beim Löschen frei wird. Unveränderte Dateien teilen sich "
-             "die Snapshots per Hardlink.")
+        info(_("'Nur dieser' = Platz, der beim Löschen frei wird. Unveränderte Dateien teilen sich die Snapshots per Hardlink."))
 
 
 def cmd_comment(cfg, args):
@@ -1684,26 +1756,23 @@ def cmd_comment(cfg, args):
         if args.tags is not None:
             sn["tags"] = list(dict.fromkeys(args.tags.upper()))
         s.storage.write_info(sn["name"], {k: v for k, v in sn.items() if k != "valid"})
-        info("Gespeichert.")
+        info(_('Gespeichert.'))
 
 
 def cmd_restore(cfg, args):
     if SOURCE != "/" and args.target in (None, "/"):
-        die("Testmodus: --target angeben.")
+        die(_('Testmodus: --target angeben.'))
     dest = args.target or "/"
     live = os.path.realpath(dest) == "/" and not dest.startswith("/dev/")
     restore_mp = None
     if live and cfg.get("rescue_mode"):
-        die("Rettungssystem: Bitte als Ziel die Systempartition des Rechners wählen (z.B. /dev/nvme0n1p2), "
-            "nicht das laufende System.")
+        die(_('Rettungssystem: Bitte als Ziel die Systempartition des Rechners wählen (z.B. /dev/nvme0n1p2), nicht das laufende System.'))
     with Session(cfg) as s:
         snap = resolve(s.storage, args.snapshot)
         if not snap["valid"]:
-            die(f"Snapshot {snap['name']} ist unvollständig und kann nicht wiederhergestellt werden.")
+            die(_('Snapshot {0} ist unvollständig und kann nicht wiederhergestellt werden.').format(snap['name']))
         if live and snap.get("host") and snap["host"] != hostname() and not args.allow_other_host:
-            die(f"Dieser Snapshot stammt vom Rechner '{snap['host']}', du bist gerade auf '{hostname()}'. "
-                "Zur Sicherheit wird er nicht auf das laufende System gespielt. Bitte als Ziel die "
-                "Systempartition des Rechners wählen.")
+            die(_("Dieser Snapshot stammt vom Rechner '{0}', du bist gerade auf '{1}'. Zur Sicherheit wird er nicht auf das laufende System gespielt. Bitte als Ziel die Systempartition des Rechners wählen.").format(snap['host'], hostname()))
         if dest.startswith("/dev/") or re.match(r"^(UUID|LABEL)=", dest):
             dest = resolve_restore_device(dest)
             restore_mp = mount_restore_target(dest, readonly=args.dry_run)
@@ -1711,56 +1780,50 @@ def cmd_restore(cfg, args):
         else:
             dest_path = dest
             if not os.path.isdir(dest_path):
-                die(f"Zielpfad existiert nicht: {dest_path}")
+                die(_('Zielpfad existiert nicht: {dest_path}').format(dest_path=dest_path))
             content = set(os.listdir(dest_path)) - {"lost+found"}
             if not live and content and not os.path.isdir(os.path.join(dest_path, "etc")):
-                die(f"In {dest_path} liegt kein Linux-System (kein /etc), aber andere Daten. Eine "
-                    "Wiederherstellung würde diese Daten löschen – zur Sicherheit abgebrochen. Bitte die "
-                    "Wurzel des Zielsystems oder einen leeren Ordner wählen.")
-        what = "das LAUFENDE SYSTEM" if live else dest
+                die(_('In {dest_path} liegt kein Linux-System (kein /etc), aber andere Daten. Eine Wiederherstellung würde diese Daten löschen – zur Sicherheit abgebrochen. Bitte die Wurzel des Zielsystems oder einen leeren Ordner wählen.').format(dest_path=dest_path))
+        what = _('das LAUFENDE SYSTEM') if live else dest
         try:
             if args.dry_run:
-                info(f"Vorschau: Änderungen, die eine Wiederherstellung von {snap['name']} auf {what} "
-                     "vornehmen würde (Legende: > geändert/neu, *deleting = wird gelöscht):")
+                info(_('Vorschau: Änderungen, die eine Wiederherstellung von {0} auf {what} vornehmen würde (Legende: > geändert/neu, *deleting = wird gelöscht):').format(snap['name'], what=what))
                 restore(cfg, s.target, s.storage, snap, dest_path, dry_run=True,
                         keep_fstab=args.keep_fstab)
                 return
             probe = target_probe(cfg["target"])
             if probe and route_info(probe[0]).get("wireless"):
-                warn("Die Verbindung zum Sicherungsziel läuft über WLAN. Bei Aussetzern bricht die "
-                     "Wiederherstellung ab – ein LAN-Kabel ist deutlich sicherer.")
-            if not confirm(f"Snapshot {snap['name']} ({snap.get('comment') or 'ohne Kommentar'}) "
-                           f"auf {what} zurückspielen? Dateien, die seitdem neu hinzugekommen sind, "
-                           f"werden gelöscht{' (Home-Verzeichnisse bleiben unberührt)' if not snap.get('include_home') else ''}.",
+                warn(_('Die Verbindung zum Sicherungsziel läuft über WLAN. Bei Aussetzern bricht die Wiederherstellung ab – ein LAN-Kabel ist deutlich sicherer.'))
+            if not confirm(_('Snapshot {0} ({1}) auf {what} zurückspielen? Dateien, die seitdem neu hinzugekommen sind, werden gelöscht{2}.').format(snap['name'], snap.get('comment') or _('ohne Kommentar'), _(' (Home-Verzeichnisse bleiben unberührt)') if not snap.get('include_home') else '', what=what),
                            args, strong=live):
-                info("Abgebrochen.")
+                info(_('Abgebrochen.'))
                 return
             if live and not args.no_pre_snapshot:
-                info("Sicherheits-Snapshot des aktuellen Zustands wird erstellt…")
+                step(_('Sicherheits-Snapshot des aktuellen Zustands wird erstellt…'))
                 create_snapshot(cfg, s.target, s.storage, ["R"],
-                                f"Vor Wiederherstellung von {snap['name']}")
-            info(f"Stelle {snap['name']} auf {what} wieder her…")
+                                _('Vor Wiederherstellung von {0}').format(snap['name']))
+            step(_('Stelle {0} auf {what} wieder her…').format(snap['name'], what=what))
             restore(cfg, s.target, s.storage, snap, dest_path, keep_fstab=args.keep_fstab)
             os.sync()
             if args.update_grub and not live:
                 update_grub(dest_path)
-            info("Wiederherstellung abgeschlossen.")
+            info(_('Wiederherstellung abgeschlossen.'))
         finally:
             if restore_mp:
                 _umount(restore_mp)
     if live:
         if args.reboot or (not GUI_MODE and sys.stdin.isatty() and not args.no_reboot
-                           and input("Jetzt neu starten (dringend empfohlen)? [J/n] ").strip().lower()
-                           in ("", "j", "ja", "y")):
-            info("Starte neu…")
+                           and input(_('Jetzt neu starten (dringend empfohlen)? [J/n] ')).strip().lower()
+                           in ("", "j", _("ja"), "y")):
+            info(_('Starte neu…'))
             run(["systemctl", "reboot"], check=False)
         else:
-            info("Bitte das System so bald wie möglich neu starten.")
+            info(_('Bitte das System so bald wie möglich neu starten.'))
 
 
 def cmd_restore_files(cfg, args):
     if cfg.get("rescue_mode") and not args.to:
-        die("Rettungssystem: Bitte mit --to einen Zielordner angeben (sonst landen die Dateien im Rettungssystem).")
+        die(_('Rettungssystem: Bitte mit --to einen Zielordner angeben (sonst landen die Dateien im Rettungssystem).'))
     with Session(cfg) as s:
         snap = resolve(s.storage, args.snapshot)
         dest = args.to or "/"
@@ -1770,11 +1833,11 @@ def cmd_restore_files(cfg, args):
         srcs = []
         for p in args.paths:
             if not p.startswith("/"):
-                die(f"Pfad muss absolut sein: {p}")
+                die(_('Pfad muss absolut sein: {p}').format(p=p))
             rel = p.lstrip("/").rstrip("/")
             srcs.append(f"{root}/./{rel}" + ("/" if args.delete else ""))
-        if not confirm(f"{len(srcs)} Pfad(e) aus {snap['name']} nach {dest} zurückholen?", args):
-            info("Abgebrochen.")
+        if not confirm(_('{0} Pfad(e) aus {1} nach {dest} zurückholen?').format(len(srcs), snap['name'], dest=dest), args):
+            info(_('Abgebrochen.'))
             return
         cmd = rsync_base(cfg) + ["--relative"] + s.storage.rsync_opts()
         if args.delete:
@@ -1784,8 +1847,8 @@ def cmd_restore_files(cfg, args):
         for src in srcs:
             rc = run_rsync(cmd + [src, dest.rstrip("/") + "/"])
             if rc not in (0, 24):
-                warn(f"rsync meldet {rc} für {src}")
-        info("Fertig.")
+                warn(_('rsync meldet {rc} für {src}').format(rc=rc, src=src))
+        info(_('Fertig.'))
 
 
 def cmd_check(cfg, args):
@@ -1804,9 +1867,9 @@ def cmd_check(cfg, args):
     by_tag = st.get("last_by_tag")
     # Fällig? – zuerst anhand des gespeicherten Status, damit das NAS nicht jede Stunde geweckt wird
     if by_tag is not None and not args.boot:
-        due = [tag for _, tag, iv in enabled if now - by_tag.get(tag, 0) >= iv - 900]
+        due = [tag for _x, tag, iv in enabled if now - by_tag.get(tag, 0) >= iv - 900]
         if not due:
-            info("Kein geplanter Snapshot fällig.")
+            info(_('Kein geplanter Snapshot fällig.'))
             notify_health(cfg, st)
             save_status(st)
             return
@@ -1815,24 +1878,24 @@ def cmd_check(cfg, args):
             sync_status(sess.storage, st)
             snaps = [x for x in snapshots(sess.storage) if x["valid"]]
             due = ["B"] if args.boot else []
-            for _, tag, iv in enabled:
+            for _x, tag, iv in enabled:
                 last = max((x["epoch"] for x in snaps if tag in x["tags"]), default=0)
                 if now - last >= iv - 900:
                     due.append(tag)
             other = foreign_host(sess.storage)
             if due and other:
-                info(f"Übersprungen: Die Sicherung gehört zum Rechner '{other}', nicht zu '{hostname()}'.")
+                info(_("Übersprungen: Die Sicherung gehört zum Rechner '{other}', nicht zu '{0}'.").format(hostname(), other=other))
                 return
             if due:
-                create_snapshot(cfg, sess.target, sess.storage, due, "Geplant")
+                create_snapshot(cfg, sess.target, sess.storage, due, "Geplant")   # wird beim Anzeigen übersetzt
                 record_success(st)
             else:
-                info("Kein geplanter Snapshot fällig.")
+                info(_('Kein geplanter Snapshot fällig.'))
             prune(cfg, sess.storage)
             sync_status(sess.storage, st)
     except NetshiftError as e:
-        if "anderer netshift-Vorgang" in str(e):
-            info("Anderer Vorgang läuft – übersprungen.")
+        if e.kind == "busy":
+            info(_('Anderer Vorgang läuft – übersprungen.'))
             return
         record_failure(st, e)
         raise
@@ -1851,10 +1914,10 @@ def cmd_pacman_hook(cfg, args):
         with Session(cfg) as s:
             snaps = [x for x in snapshots(s.storage) if x["valid"] and "P" in x["tags"]]
             if snaps and time.time() - snaps[-1]["epoch"] < ph.get("min_interval_minutes", 30) * 60:
-                info("netshift: letzter Pacman-Snapshot ist noch aktuell – übersprungen.")
+                info(_('netshift: letzter Pacman-Snapshot ist noch aktuell – übersprungen.'))
                 return 0
             if foreign_host(s.storage):
-                info("netshift: Sicherung gehört zu einem anderen Rechner – kein Snapshot.")
+                info(_('netshift: Sicherung gehört zu einem anderen Rechner – kein Snapshot.'))
                 return 0
             short = " ".join(pkgs[:8]) + (f" (+{len(pkgs) - 8})" if len(pkgs) > 8 else "")
             create_snapshot(cfg, s.target, s.storage, ["P"], f"pacman: {short}".strip())
@@ -1862,7 +1925,7 @@ def cmd_pacman_hook(cfg, args):
             record_success(st)
             sync_status(s.storage, st)
     except NetshiftError as e:
-        print(f"netshift: Snapshot vor Paketänderung fehlgeschlagen: {e}", file=sys.stderr)
+        print(_('netshift: Snapshot vor Paketänderung fehlgeschlagen: {e}').format(e=e), file=sys.stderr)
         record_failure(st, e)
         notify_health(cfg, st)
         save_status(st)
@@ -1879,13 +1942,11 @@ def cmd_mount(cfg, args):
         st = t.open()
         open(os.path.join(RUN_DIR, "keep-mounted"), "w").close()
         if st.remote:
-            info(f"SSH-Ziel – Snapshots liegen auf {st.describe()}/snapshots. "
-                 "Zum Durchsuchen z.B. sshfs nutzen oder 'netshift restore-files'.")
+            info(_("SSH-Ziel – Snapshots liegen auf {0}/snapshots. Zum Durchsuchen z.B. sshfs nutzen oder 'netshift restore-files'.").format(st.describe()))
         else:
             info(st.snapdir)
             if not args.quiet:
-                info("Snapshots eingebunden. Jeder Snapshot liegt unter <name>/localhost. "
-                     "Aushängen mit: sudo netshift umount")
+                info(_('Snapshots eingebunden. Jeder Snapshot liegt unter <name>/localhost. Aushängen mit: sudo netshift umount'))
     finally:
         lock.release()
 
@@ -1894,12 +1955,12 @@ def cmd_umount(cfg, args):
     if args.shutdown:
         # Beim Herunterfahren: nicht auf andere Vorgänge warten, nie hängen bleiben
         unmount_all(cfg, fast=True)
-        info("netshift: Sicherungsziel ausgehängt.")
+        info(_('netshift: Sicherungsziel ausgehängt.'))
         return
     lock = Lock()
     try:
         unmount_all(cfg)
-        info("Ausgehängt.")
+        info(_('Ausgehängt.'))
     finally:
         lock.release()
 
@@ -1915,10 +1976,9 @@ def cmd_netcheck(cfg, args):
         print(json.dumps(res))
         return
     if not res["network"]:
-        info("Lokales Ziel – keine Netzwerkverbindung nötig.")
+        info(_('Lokales Ziel – keine Netzwerkverbindung nötig.'))
         return
-    info(f"Ziel {probe[0]}: {'erreichbar' if res['reachable'] else 'NICHT erreichbar'}, "
-         f"Verbindung über {res.get('iface') or '?'}{' (WLAN)' if res['wireless'] else ''}")
+    info(_('Ziel {0}: {1}, Verbindung über {2}{3}').format(probe[0], _('erreichbar') if res['reachable'] else _('NICHT erreichbar'), res.get('iface') or '?', ' (WLAN)' if res['wireless'] else ''))
 
 
 def cmd_status(cfg, args):
@@ -1926,7 +1986,7 @@ def cmd_status(cfg, args):
     timers = {}
     for u in ("netshift-check.timer", "netshift-boot.timer"):
         p = run(["systemctl", "is-enabled", u], check=False, capture=True, quiet=True)
-        timers[u] = (p.stdout or "").strip() or "unbekannt"
+        timers[u] = (p.stdout or "").strip() or _("unbekannt")
     st = load_status()
     data = {"version": VERSION, "config": CONFIG_PATH, "target": t.describe(),
             "machine_name": cfg["machine_name"], "include_home": cfg["include_home"],
@@ -1937,20 +1997,20 @@ def cmd_status(cfg, args):
         print(json.dumps(data, ensure_ascii=False))
         return
     info(f"netshift {VERSION}")
-    info(f"Konfiguration: {CONFIG_PATH}")
-    info(f"Ziel:          {t.describe()}  (Maschine: {cfg['machine_name']})")
+    info(_('Konfiguration: {CONFIG_PATH}').format(CONFIG_PATH=CONFIG_PATH))
+    info(_('Ziel:          {0}  (Maschine: {1})').format(t.describe(), cfg['machine_name']))
     if cfg.get("rescue_mode"):
-        info("Modus:         RETTUNGSSYSTEM (nur wiederherstellen, keine Snapshots)")
-    info(f"Home sichern:  {'ja' if cfg['include_home'] else 'nein'}")
-    sch = ", ".join(f"{k} (behalte {v['keep']})" for k, v in data["schedule"].items()) or "aus"
-    info(f"Zeitplan:      {sch}")
-    info(f"Pacman-Hook:   {'an' if data['pacman_hook'] else 'aus'}")
+        info(_('Modus:         RETTUNGSSYSTEM (nur wiederherstellen, keine Snapshots)'))
+    info(_('Home sichern:  {0}').format(_('ja') if cfg['include_home'] else _('nein')))
+    sch = ", ".join(_("{0} (behalte {1})").format(k, v['keep']) for k, v in data["schedule"].items()) or _("aus")
+    info(_('Zeitplan:      {sch}').format(sch=sch))
+    info(_("Pacman-Hook:   {0}").format(_('an') if data['pacman_hook'] else _('aus')))
     for u, stt in timers.items():
         info(f"{u}: {stt}")
     if data["last_success"]:
-        info(f"Letzte Sicherung: {dt.datetime.fromtimestamp(data['last_success']).strftime('%d.%m.%Y %H:%M')}")
+        info(_('Letzte Sicherung: {0}').format(dt.datetime.fromtimestamp(data['last_success']).strftime(_('%d.%m.%Y %H:%M'))))
     for pr in data["health"]:
-        info(f"PROBLEM: {pr['title']} – {pr['body']}")
+        info(_('PROBLEM: {0} – {1}').format(pr['title'], pr['body']))
 
 
 def cmd_test(cfg, args):
@@ -1964,8 +2024,9 @@ def cmd_test(cfg, args):
             st = os.stat(p)
             os.unlink(p)
             if st.st_uid != 1234:
-                warn("Ziel speichert keine Linux-Besitzer – Image-Container verwenden (container: image).")
-        info(f"Verbindung OK: {s.target.describe()} [{s.target.mode}] – {human(free)} frei von {human(total)}")
+                warn(_('Ziel speichert keine Linux-Besitzer – Image-Container verwenden (container: image).'))
+        msg = _('Verbindung OK: {0} [{1}] – {2} frei von {3}').format(s.target.describe(), s.target.mode, human(free), human(total))
+        print(("@@RESULT " if GUI_MODE else "") + msg, flush=True)
 
 
 def cmd_resize_image(cfg, args):
@@ -1975,18 +2036,18 @@ def cmd_resize_image(cfg, args):
         t = Target(cfg)
         t.validate()
         if t.t["type"] == "ssh":
-            die("Bei SSH gibt es keinen Image-Container.")
+            die(_('Bei SSH gibt es keinen Image-Container.'))
         share = t._mount_share()
         try:
             if t._container_mode(share) != "image":
-                die("Dieses Ziel verwendet keinen Image-Container.")
+                die(_('Dieses Ziel verwendet keinen Image-Container.'))
             img = os.path.join(share, t.t.get("subdir") or "netshift", t.label + ".img")
             if not os.path.exists(img):
-                die(f"Image nicht gefunden: {img}")
+                die(_('Image nicht gefunden: {img}').format(img=img))
             cur = os.path.getsize(img)
             new = int(args.size_gb) * 1024 ** 3
             if new <= cur:
-                die(f"Neue Größe muss größer als die aktuelle sein ({cur // 1024 ** 3} GiB). Verkleinern wird nicht unterstützt.")
+                die(_('Neue Größe muss größer als die aktuelle sein ({0} GiB). Verkleinern wird nicht unterstützt.').format(cur // 1024 ** 3))
             with open(img, "r+b") as f:
                 f.truncate(new)
             dev = img
@@ -1998,7 +2059,7 @@ def cmd_resize_image(cfg, args):
             run(["resize2fs", dev])
             cfg["target"]["image_size_gb"] = int(args.size_gb)
             save_config(cfg)
-            info(f"Image auf {args.size_gb} GiB vergrößert.")
+            info(_('Image auf {0} GiB vergrößert.').format(args.size_gb))
         finally:
             t.close(force=True)
     finally:
@@ -2007,14 +2068,14 @@ def cmd_resize_image(cfg, args):
 
 def cmd_schedule_apply(cfg, args):
     sch = cfg["schedule"]
-    periodic = any(sch.get(l, {}).get("enabled") for l, _, _ in LEVELS)
+    periodic = any(sch.get(l, {}).get("enabled") for l, _x, _x in LEVELS)
     boot = bool(sch.get("boot", {}).get("enabled"))
     if cfg.get("rescue_mode"):
         periodic = boot = False
     for unit, on in (("netshift-check.timer", periodic), ("netshift-boot.timer", boot),
                      ("netshift-shutdown.service", True)):
         run(["systemctl", "enable" if on else "disable", "--now", unit], check=False, capture=True)
-        info(f"{unit}: {'aktiviert' if on else 'deaktiviert'}")
+        info(f"{unit}: {_('aktiviert') if on else _('deaktiviert')}")
 
 
 def cmd_ssh_setup(cfg, args):
@@ -2026,10 +2087,10 @@ def cmd_ssh_setup(cfg, args):
         run(["ssh-keygen", "-t", "ed25519", "-N", "", "-C", f"netshift@{hostname()}", "-f", key])
     with open(key + ".pub") as f:
         pub = f.read().strip()
-    info("Öffentlicher Schlüssel:\n" + pub)
+    info(_('Öffentlicher Schlüssel:\n') + pub)
     if args.copy and t.get("server"):
         host = f"{t.get('ssh_user')}@{t['server']}" if t.get("ssh_user") else t["server"]
-        info(f"Übertrage Schlüssel zu {host} (Passwort wird einmalig abgefragt)…")
+        info(_('Übertrage Schlüssel zu {host} (Passwort wird einmalig abgefragt)…').format(host=host))
         run(["ssh-copy-id", "-i", key + ".pub", "-p", str(t.get("ssh_port") or 22), host], check=False)
 
 
@@ -2037,11 +2098,16 @@ def cmd_config(cfg, args):
     if args.set_json:
         new = json.load(sys.stdin)
         save_config(deep_merge(DEFAULT_CONFIG, new))
-        info("Konfiguration gespeichert.")
+        info(_('Konfiguration gespeichert.'))
     elif args.path:
         print(CONFIG_PATH)
     else:
         print(json.dumps(cfg, indent=2, ensure_ascii=False))
+
+
+def yes(answer):
+    """j/ja/y/yes – Antworten in beiden Sprachen akzeptieren."""
+    return str(answer).strip().lower()[:1] in ("j", "y")
 
 
 def ask(prompt, default=""):
@@ -2051,63 +2117,63 @@ def ask(prompt, default=""):
 
 def cmd_setup(cfg, args):
     if not sys.stdin.isatty():
-        die("'setup' ist interaktiv. Alternativ die GUI (netshift-gui) verwenden.")
+        die(_("'setup' ist interaktiv. Alternativ die GUI (netshift-gui) verwenden."))
     t = cfg["target"]
-    info("=== netshift Einrichtung ===  (Enter übernimmt den Vorgabewert)")
-    cfg["machine_name"] = ask("Name dieses Rechners im Backup", cfg["machine_name"])
-    typ = ask("Zieltyp: smb / nfs / ssh / local", t["type"]).lower()
+    info(_('=== netshift Einrichtung ===  (Enter übernimmt den Vorgabewert)'))
+    cfg["machine_name"] = ask(_('Name dieses Rechners im Backup'), cfg["machine_name"])
+    typ = ask(_('Zieltyp: smb / nfs / ssh / local'), t["type"]).lower()
     t["type"] = typ
     if typ == "smb":
-        t["server"] = ask("Server (Name oder IP, z.B. 192.168.1.10)", t["server"])
-        t["share"] = ask("Freigabe (z.B. backup oder backup/ordner)", t["share"])
-        t["smb_version"] = ask("SMB-Version (3.0, 2.1, 1.0)", t["smb_version"])
+        t["server"] = ask(_('Server (Name oder IP, z.B. 192.168.1.10)'), t["server"])
+        t["share"] = ask(_('Freigabe (z.B. backup oder backup/ordner)'), t["share"])
+        t["smb_version"] = ask(_("SMB-Version (3.0, 2.1, 1.0)"), t["smb_version"])
         cur = read_smb_credentials()
-        user = ask("Benutzername (leer = Gast)", cur.get("username", ""))
+        user = ask(_('Benutzername (leer = Gast)'), cur.get("username", ""))
         if user:
             import getpass
-            pw = getpass.getpass("Passwort (Enter = unverändert): ") or cur.get("password", "")
-            dom = ask("Domäne/Arbeitsgruppe (optional)", cur.get("domain", ""))
+            pw = getpass.getpass(_('Passwort (Enter = unverändert): ')) or cur.get("password", "")
+            dom = ask(_('Domäne/Arbeitsgruppe (optional)'), cur.get("domain", ""))
             write_smb_credentials(user, pw, dom)
         elif os.path.exists(cred_path()):
             os.remove(cred_path())
     elif typ == "nfs":
-        t["server"] = ask("Server", t["server"])
-        t["export"] = ask("Export-Pfad (z.B. /volume1/backup)", t["export"])
+        t["server"] = ask(_('Server'), t["server"])
+        t["export"] = ask(_('Export-Pfad (z.B. /volume1/backup)'), t["export"])
     elif typ == "ssh":
-        t["server"] = ask("Server", t["server"])
-        t["ssh_user"] = ask("Benutzer", t["ssh_user"])
-        t["ssh_port"] = int(ask("Port", t["ssh_port"]))
-        t["ssh_path"] = ask("Zielpfad auf dem Server", t["ssh_path"])
-        fs = ask("Server-Benutzer ist nicht root? Besitzer per --fake-super speichern (j/n)",
+        t["server"] = ask(_('Server'), t["server"])
+        t["ssh_user"] = ask(_('Benutzer'), t["ssh_user"])
+        t["ssh_port"] = int(ask(_('Port'), t["ssh_port"]))
+        t["ssh_path"] = ask(_('Zielpfad auf dem Server'), t["ssh_path"])
+        fs = ask(_('Server-Benutzer ist nicht root? Besitzer per --fake-super speichern (j/n)'),
                  "j" if t["ssh_fake_super"] else ("j" if t["ssh_user"] != "root" else "n"))
-        t["ssh_fake_super"] = fs.lower().startswith("j")
+        t["ssh_fake_super"] = yes(fs)
     elif typ == "local":
-        t["path"] = ask("Pfad, Gerät oder UUID=… (z.B. /run/media/user/USB oder UUID=1234-…)", t["path"])
+        t["path"] = ask(_('Pfad, Gerät oder UUID=… (z.B. /run/media/user/USB oder UUID=1234-…)'), t["path"])
     else:
-        die("Unbekannter Typ.")
+        die(_('Unbekannter Typ.'))
     if typ != "ssh":
         if typ in ("smb", "nfs") or t["container"] == "image":
-            t["image_size_gb"] = int(ask("Maximale Größe des Image-Containers in GiB", t["image_size_gb"]))
-            t["encrypt"] = ask("Image mit LUKS verschlüsseln? (j/n)", "j" if t["encrypt"] else "n").lower().startswith("j")
-    cfg["include_home"] = ask("Home-Verzeichnisse mitsichern? (j/n)", "j" if cfg["include_home"] else "n").lower().startswith("j")
-    for lvl, label in (("boot", "Beim Booten"), ("hourly", "Stündlich"), ("daily", "Täglich"),
-                       ("weekly", "Wöchentlich"), ("monthly", "Monatlich")):
+            t["image_size_gb"] = int(ask(_('Maximale Größe des Image-Containers in GiB'), t["image_size_gb"]))
+            t["encrypt"] = yes(ask(_('Image mit LUKS verschlüsseln? (j/n)'), "j" if t["encrypt"] else "n"))
+    cfg["include_home"] = yes(ask(_('Home-Verzeichnisse mitsichern? (j/n)'), "j" if cfg["include_home"] else "n"))
+    for lvl, label in (("boot", _('Beim Booten')), ("hourly", _('Stündlich')), ("daily", _('Täglich')),
+                       ("weekly", _('Wöchentlich')), ("monthly", _('Monatlich'))):
         s = cfg["schedule"][lvl]
-        on = ask(f"{label} automatisch sichern? (j/n)", "j" if s["enabled"] else "n").lower().startswith("j")
+        on = yes(ask(_('{label} automatisch sichern? (j/n)').format(label=label), "j" if s["enabled"] else "n"))
         s["enabled"] = on
         if on:
-            s["keep"] = int(ask(f"  Wie viele {label.lower()}e Snapshots behalten", s["keep"]))
+            s["keep"] = int(ask(_('  Wie viele {0}e Snapshots behalten').format(label.lower()), s["keep"]))
     ph = cfg["pacman_hook"]
-    ph["enabled"] = ask("Snapshot vor jedem pacman-Update? (j/n)", "j" if ph["enabled"] else "n").lower().startswith("j")
+    ph["enabled"] = yes(ask(_('Snapshot vor jedem pacman-Update? (j/n)'), "j" if ph["enabled"] else "n"))
     save_config(cfg)
-    info(f"Gespeichert in {CONFIG_PATH}.")
+    info(_('Gespeichert in {CONFIG_PATH}.').format(CONFIG_PATH=CONFIG_PATH))
     if typ == "ssh":
         cmd_ssh_setup(cfg, argparse.Namespace(copy=True))
     try:
         cmd_schedule_apply(cfg, args)
     except NetshiftError as e:
         warn(str(e))
-    info("Teste Verbindung…")
+    info(_('Teste Verbindung…'))
     cmd_test(cfg, args)
 
 
@@ -2115,87 +2181,87 @@ def cmd_setup(cfg, args):
 
 def build_parser():
     p = argparse.ArgumentParser(prog="netshift", description=(
-        "System-Snapshots wie Timeshift – auch auf SMB-, NFS- und SSH-Ziele."))
-    p.add_argument("--config", help="Alternative Konfigurationsdatei (z.B. im Live-System)")
+        _('System-Snapshots wie Timeshift – auch auf SMB-, NFS- und SSH-Ziele.')))
+    p.add_argument("--config", help=_('Alternative Konfigurationsdatei (z.B. im Live-System)'))
     p.add_argument("--version", action="version", version=f"netshift {VERSION}")
-    sp = p.add_subparsers(dest="cmd", metavar="BEFEHL")
+    sp = p.add_subparsers(dest="cmd", metavar=_('BEFEHL'))
 
-    c = sp.add_parser("create", help="Snapshot erstellen")
+    c = sp.add_parser("create", help=_('Snapshot erstellen'))
     c.add_argument("-c", "--comment", default="")
-    c.add_argument("--tags", help="Tags, z.B. O (manuell), D (täglich) … Standard: O")
-    c.add_argument("--prune", action="store_true", help="danach Aufbewahrungsregeln anwenden")
+    c.add_argument("--tags", help=_('Tags, z.B. O (manuell), D (täglich) … Standard: O'))
+    c.add_argument("--prune", action="store_true", help=_('danach Aufbewahrungsregeln anwenden'))
     c.add_argument("--allow-other-host", action="store_true",
-                   help="auch erstellen, wenn die Sicherung von einem anders benannten Rechner stammt")
+                   help=_('auch erstellen, wenn die Sicherung von einem anders benannten Rechner stammt'))
 
-    l = sp.add_parser("list", help="Snapshots anzeigen")
+    l = sp.add_parser("list", help=_('Snapshots anzeigen'))
     l.add_argument("--json", action="store_true")
 
-    d = sp.add_parser("delete", help="Snapshot(s) löschen")
-    d.add_argument("snapshots", nargs="+", help="Name, Nummer aus 'list' oder 'latest'")
+    d = sp.add_parser("delete", help=_('Snapshot(s) löschen'))
+    d.add_argument("snapshots", nargs="+", help=_("Name, Nummer aus 'list' oder 'latest'"))
     d.add_argument("-y", "--yes", action="store_true")
 
-    ul = sp.add_parser("unlock", help="Verschlüsselte Partition (LUKS) entsperren")
+    ul = sp.add_parser("unlock", help=_('Verschlüsselte Partition (LUKS) entsperren'))
     ul.add_argument("device")
-    ul.add_argument("--stdin", action="store_true", help="Passwort von der Standardeingabe lesen")
-    lk = sp.add_parser("lock", help="Von netshift entsperrte Partition wieder sperren")
+    ul.add_argument("--stdin", action="store_true", help=_('Passwort von der Standardeingabe lesen'))
+    lk = sp.add_parser("lock", help=_('Von netshift entsperrte Partition wieder sperren'))
     lk.add_argument("devices", nargs="+")
-    sz = sp.add_parser("size", help="Belegten Speicherplatz von Snapshots anzeigen")
-    sz.add_argument("snapshots", nargs="*", help="Name/Nummer (Standard: alle)")
+    sz = sp.add_parser("size", help=_('Belegten Speicherplatz von Snapshots anzeigen'))
+    sz.add_argument("snapshots", nargs="*", help=_('Name/Nummer (Standard: alle)'))
     sz.add_argument("--json", action="store_true")
-    sz.add_argument("--refresh", action="store_true", help="neu berechnen statt zwischengespeichert")
-    cm = sp.add_parser("comment", help="Kommentar/Tags eines Snapshots ändern")
+    sz.add_argument("--refresh", action="store_true", help=_('neu berechnen statt zwischengespeichert'))
+    cm = sp.add_parser("comment", help=_('Kommentar/Tags eines Snapshots ändern'))
     cm.add_argument("snapshot")
     cm.add_argument("text")
     cm.add_argument("--tags")
 
-    r = sp.add_parser("restore", help="System aus Snapshot wiederherstellen")
-    r.add_argument("snapshot", help="Name, Nummer aus 'list' oder 'latest'")
-    r.add_argument("--target", help="Ziel: / (Standard), Verzeichnis, /dev/sdXN oder UUID=… (z.B. vom Live-USB)")
-    r.add_argument("--dry-run", action="store_true", help="nur anzeigen, was geändert würde")
-    r.add_argument("--keep-fstab", action="store_true", help="/etc/fstab und /etc/crypttab des Ziels behalten")
-    r.add_argument("--no-pre-snapshot", action="store_true", help="vorher keinen Sicherheits-Snapshot erstellen")
-    r.add_argument("--update-grub", action="store_true", help="nach Restore auf anderes Ziel grub-mkconfig im chroot")
-    r.add_argument("--reboot", action="store_true", help="danach sofort neu starten")
+    r = sp.add_parser("restore", help=_('System aus Snapshot wiederherstellen'))
+    r.add_argument("snapshot", help=_("Name, Nummer aus 'list' oder 'latest'"))
+    r.add_argument("--target", help=_('Ziel: / (Standard), Verzeichnis, /dev/sdXN oder UUID=… (z.B. vom Live-USB)'))
+    r.add_argument("--dry-run", action="store_true", help=_('nur anzeigen, was geändert würde'))
+    r.add_argument("--keep-fstab", action="store_true", help=_('/etc/fstab und /etc/crypttab des Ziels behalten'))
+    r.add_argument("--no-pre-snapshot", action="store_true", help=_('vorher keinen Sicherheits-Snapshot erstellen'))
+    r.add_argument("--update-grub", action="store_true", help=_('nach Restore auf anderes Ziel grub-mkconfig im chroot'))
+    r.add_argument("--reboot", action="store_true", help=_('danach sofort neu starten'))
     r.add_argument("--no-reboot", action="store_true")
     r.add_argument("--allow-other-host", action="store_true",
-                   help="Snapshot eines anders benannten Rechners auf das laufende System spielen")
+                   help=_('Snapshot eines anders benannten Rechners auf das laufende System spielen'))
     r.add_argument("-y", "--yes", action="store_true")
 
-    rf = sp.add_parser("restore-files", help="Einzelne Dateien/Ordner aus Snapshot zurückholen")
+    rf = sp.add_parser("restore-files", help=_('Einzelne Dateien/Ordner aus Snapshot zurückholen'))
     rf.add_argument("snapshot")
-    rf.add_argument("paths", nargs="+", help="absolute Pfade, z.B. /etc/pacman.conf")
-    rf.add_argument("--to", help="in dieses Verzeichnis statt an den Originalort")
-    rf.add_argument("--delete", action="store_true", help="Ordner exakt angleichen (löscht neuere Dateien darin)")
+    rf.add_argument("paths", nargs="+", help=_('absolute Pfade, z.B. /etc/pacman.conf'))
+    rf.add_argument("--to", help=_('in dieses Verzeichnis statt an den Originalort'))
+    rf.add_argument("--delete", action="store_true", help=_('Ordner exakt angleichen (löscht neuere Dateien darin)'))
     rf.add_argument("--dry-run", action="store_true")
     rf.add_argument("-y", "--yes", action="store_true")
 
-    df = sp.add_parser("diff", help="Zeigt, was ein Restore ändern würde (Vorschau)")
+    df = sp.add_parser("diff", help=_('Zeigt, was ein Restore ändern würde (Vorschau)'))
     df.add_argument("snapshot")
     df.add_argument("--target")
     df.add_argument("--keep-fstab", action="store_true")
 
-    ck = sp.add_parser("check", help="Geplante Snapshots (vom Timer aufgerufen)")
+    ck = sp.add_parser("check", help=_('Geplante Snapshots (vom Timer aufgerufen)'))
     ck.add_argument("--boot", action="store_true")
 
-    sp.add_parser("pacman-hook", help="(intern) vom pacman-Hook aufgerufen")
-    m = sp.add_parser("mount", help="Snapshots zum Durchsuchen einbinden")
+    sp.add_parser("pacman-hook", help=_('(intern) vom pacman-Hook aufgerufen'))
+    m = sp.add_parser("mount", help=_('Snapshots zum Durchsuchen einbinden'))
     m.add_argument("-q", "--quiet", action="store_true")
-    um = sp.add_parser("umount", help="Eingebundene Snapshots aushängen")
-    um.add_argument("--shutdown", action="store_true", help="(intern) schnell aushängen beim Herunterfahren")
-    nc = sp.add_parser("netcheck", help="Verbindung zum Netzwerkziel prüfen (WLAN?)")
+    um = sp.add_parser("umount", help=_('Eingebundene Snapshots aushängen'))
+    um.add_argument("--shutdown", action="store_true", help=_('(intern) schnell aushängen beim Herunterfahren'))
+    nc = sp.add_parser("netcheck", help=_('Verbindung zum Netzwerkziel prüfen (WLAN?)'))
     nc.add_argument("--json", action="store_true")
-    st = sp.add_parser("status", help="Konfiguration und Zeitplan anzeigen")
+    st = sp.add_parser("status", help=_('Konfiguration und Zeitplan anzeigen'))
     st.add_argument("--json", action="store_true")
-    sp.add_parser("test", help="Verbindung zum Ziel testen")
-    rs = sp.add_parser("resize-image", help="Image-Container vergrößern")
+    sp.add_parser("test", help=_('Verbindung zum Ziel testen'))
+    rs = sp.add_parser("resize-image", help=_('Image-Container vergrößern'))
     rs.add_argument("size_gb", type=int)
-    sp.add_parser("schedule-apply", help="systemd-Timer gemäß Konfiguration (de)aktivieren")
-    ss = sp.add_parser("ssh-setup", help="SSH-Schlüssel erzeugen und auf den Server kopieren")
+    sp.add_parser("schedule-apply", help=_('systemd-Timer gemäß Konfiguration (de)aktivieren'))
+    ss = sp.add_parser("ssh-setup", help=_('SSH-Schlüssel erzeugen und auf den Server kopieren'))
     ss.add_argument("--no-copy", dest="copy", action="store_false")
-    cf = sp.add_parser("config", help="Konfiguration anzeigen")
-    cf.add_argument("--set-json", action="store_true", help="Konfiguration als JSON von stdin übernehmen")
+    cf = sp.add_parser("config", help=_('Konfiguration anzeigen'))
+    cf.add_argument("--set-json", action="store_true", help=_('Konfiguration als JSON von stdin übernehmen'))
     cf.add_argument("--path", action="store_true")
-    sp.add_parser("setup", help="Interaktive Einrichtung im Terminal")
+    sp.add_parser("setup", help=_('Interaktive Einrichtung im Terminal'))
     return p
 
 
@@ -2209,7 +2275,7 @@ def main(argv=None):
     if args.config:
         CONFIG_PATH = os.path.abspath(args.config)
     if os.geteuid() != 0 and args.cmd not in ("config",):
-        print("netshift benötigt Root-Rechte – bitte mit sudo ausführen.", file=sys.stderr)
+        print(_('netshift benötigt Root-Rechte – bitte mit sudo ausführen.'), file=sys.stderr)
         return 1
     cfg = load_config()
     handlers = {
@@ -2228,10 +2294,10 @@ def main(argv=None):
     try:
         return handlers[args.cmd](cfg, args) or 0
     except NetshiftError as e:
-        print(f"FEHLER: {e}", file=sys.stderr if not GUI_MODE else sys.stdout, flush=True)
-        return 2
+        report_error(e)
+        return 3 if getattr(e, "kind", "") == "badpass" else 2
     except KeyboardInterrupt:
-        print("\nAbgebrochen.", file=sys.stderr)
+        print(_('\nAbgebrochen.'), file=sys.stderr)
         return 130
 
 

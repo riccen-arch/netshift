@@ -1,10 +1,13 @@
 [Desktop Entry]
 Type=Application
 Name=netshift
-GenericName=System-Snapshots
-Comment=System sichern und wiederherstellen – lokal, SMB, NFS oder SSH
+GenericName=System Snapshots
+GenericName[de]=System-Snapshots
+Comment=Back up and restore your system – local, SMB, NFS or SSH
+Comment[de]=System sichern und wiederherstellen – lokal, SMB, NFS oder SSH
 Exec=netshift-gui
 Icon=document-save-as
 Terminal=false
 Categories=System;Utility;
-Keywords=backup;snapshot;timeshift;restore;sicherung;
+Keywords=backup;snapshot;timeshift;restore;nas;
+Keywords[de]=backup;snapshot;timeshift;wiederherstellen;sicherung;nas;

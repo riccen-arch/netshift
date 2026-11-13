@@ -19,6 +19,11 @@ install -Dm644 data/00-netshift.hook         "$D/usr/share/libalpm/hooks/00-nets
 install -Dm644 data/org.netshift.gui.policy  "$D/usr/share/polkit-1/actions/org.netshift.gui.policy"
 install -Dm644 data/netshift.desktop         "$D/usr/share/applications/netshift.desktop"
 install -Dm644 README.md                     "$D/usr/share/doc/netshift/README.md"
+[ -f README.de.md ] && install -Dm644 README.de.md "$D/usr/share/doc/netshift/README.de.md"
 install -Dm644 docs/ANLEITUNG.md             "$D/usr/share/doc/netshift/ANLEITUNG.md"
+[ -f docs/GUIDE.md ] && install -Dm644 docs/GUIDE.md "$D/usr/share/doc/netshift/GUIDE.md"
+for po in po/*.po; do
+    install -Dm644 "$po" "$D/usr/share/netshift/po/$(basename "$po")"
+done
 [ -f LICENSE ] && install -Dm644 LICENSE     "$D/usr/share/licenses/netshift/LICENSE"
 exit 0
