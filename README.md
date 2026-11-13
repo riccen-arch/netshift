@@ -37,10 +37,10 @@ Aktualisieren:
 cd netshift && git pull && sudo sh install.sh
 ```
 
-**Ohne Git:** Unter [Releases](https://github.com/riccen-arch/netshift/releases/latest) die Datei
-`netshift-install.sh` herunterladen und ausführen:
+**Ohne Git** (lädt den aktuellen Stand und installiert ihn):
 ```bash
-sudo sh netshift-install.sh
+curl -L https://github.com/riccen-arch/netshift/archive/refs/heads/main.tar.gz | tar xz
+cd netshift-main && sudo sh install.sh
 ```
 
 Der Installer prüft, was fehlt, installiert nur diese Pakete (kein makepkg/base-devel nötig) und
@@ -102,7 +102,7 @@ installieren:
 ```bash
 git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh install.sh
 ```
-(oder `sudo sh netshift-install.sh` aus den Releases). Dann netshift öffnen → Einstellungen:
+(oder ohne Git wie oben unter „Installation“ beschrieben). Dann netshift öffnen → Einstellungen:
 - **Name im Backup:** genau wie beim Rechner, z.B. `meinrechner`
 - **Rettungssystem – nur wiederherstellen:** einschalten
 - Sicherungsziel wie am Rechner eintragen (Server, Freigabe, Benutzer, Passwort) → *Testen*
