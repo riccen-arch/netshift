@@ -8,3 +8,5 @@ Type=oneshot
 ExecStart=/usr/bin/netshift check --boot
 Nice=10
 IOSchedulingClass=idle
+# Beim Herunterfahren rechtzeitig beenden (Snapshot wird später fortgesetzt)
+TimeoutStopSec=30

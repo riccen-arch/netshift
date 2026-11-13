@@ -265,6 +265,14 @@ class App(tk.Tk):
             mode = {"image": "Image-Container", "direct": "direkt", "ssh": "SSH"}.get(data.get("mode"), "")
             self.lbl_target.configure(text=f"Ziel: {data['target']}  [{mode}]  –  {len(self.snaps)} Snapshots")
             self.lbl_free.configure(text=f"Frei: {ns.human(free)} von {ns.human(total)}" if total else "")
+            probs = data.get("health") or []
+            if probs:
+                self.lbl_target.configure(text="⚠ " + " · ".join(p["title"] for p in probs) + "   |   "
+                                          + self.lbl_target.cget("text"), foreground="#b00020")
+                for pr in probs:
+                    self.write_log(f"⚠ {pr['title']}: {pr['body']}")
+            else:
+                self.lbl_target.configure(foreground="")
             if data.get("in_progress"):
                 self.write_log("Hinweis: ein unterbrochener Snapshot wird beim nächsten Erstellen fortgesetzt.")
         self.run_cli(["list", "--json"], done, msg="Lade Snapshots…", log=False, capture=True)

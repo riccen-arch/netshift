@@ -88,6 +88,10 @@ CSS = """
 .stat-deleted { color: @error_color; }
 .op-panel { padding: 10px 14px 12px 14px; }
 .op-title { font-weight: 700; }
+.problem { padding: 12px 16px; }
+.problem.error   { background: alpha(@error_bg_color, 0.10); }
+.problem.warning { background: alpha(@warning_bg_color, 0.12); }
+.problem-title { font-weight: 700; }
 .mono { font-family: monospace; font-size: 0.9em; }
 .change-icon-new { color: @success_color; }
 .change-icon-changed { color: @accent_color; }
@@ -579,6 +583,8 @@ class MainWindow(Adw.ApplicationWindow):
             nxt = child.get_next_sibling()
             self.list_box.remove(child)
             child = nxt
+        for pr in (self.listing or {}).get("health") or []:
+            self.list_box.append(self._problem_card(pr, cfg))
         self.list_box.append(self._hero(cfg))
         if not self.snaps and rescue:
             self.list_box.append(Adw.StatusPage(icon_name="camera-photo-symbolic", title="Keine Snapshots gefunden",
@@ -599,6 +605,68 @@ class MainWindow(Adw.ApplicationWindow):
                 self.list_box.append(g)
             groups[key].add(self._row(s))
         self.stack.set_visible_child_name("list")
+
+    def _problem_card(self, pr, cfg):
+        lvl = pr.get("level", "warning")
+        card = Gtk.Box(spacing=14, css_classes=["card", "problem", lvl])
+        card.append(Gtk.Image(icon_name="dialog-error-symbolic" if lvl == "error" else "dialog-warning-symbolic",
+                              pixel_size=24, valign=Gtk.Align.CENTER, css_classes=[lvl]))
+        txt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True, valign=Gtk.Align.CENTER)
+        txt.append(Gtk.Label(label=pr["title"], xalign=0, css_classes=["problem-title"], wrap=True))
+        txt.append(Gtk.Label(label=pr["body"], xalign=0, wrap=True, css_classes=["dim-label"],
+                             wrap_mode=Pango.WrapMode.WORD_CHAR, lines=3, ellipsize=Pango.EllipsizeMode.END))
+        card.append(txt)
+        image = (self.listing or {}).get("mode") == "image"
+        if pr["kind"] == "space" and image:
+            b = Gtk.Button(label="Vergrößern…", valign=Gtk.Align.CENTER, css_classes=["pill"])
+            b.connect("clicked", lambda *_: self.resize_image())
+            card.append(b)
+        if pr["kind"] in ("overdue", "error") and not cfg.get("rescue_mode"):
+            card.append(Gtk.Button(label="Jetzt sichern", valign=Gtk.Align.CENTER,
+                                   css_classes=["pill", "suggested-action"], action_name="win.create"))
+        if pr["kind"] == "error" and len(pr["body"]) > 90:
+            b = Gtk.Button(icon_name="view-more-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"],
+                           tooltip_text="Vollständige Meldung")
+            b.connect("clicked", lambda *_: self.show_text(pr["title"], pr["body"]))
+            card.append(b)
+        return card
+
+    def show_text(self, title, body):
+        d = Adw.AlertDialog(heading=title, body=body)
+        d.add_response("ok", "OK")
+        d.present(self)
+
+    def resize_image(self):
+        cfg = ns.load_config()
+        cur = int(cfg["target"].get("image_size_gb") or 100)
+        spin = Gtk.SpinButton.new_with_range(cur + 10, 100000, 10)
+        spin.set_value(max(cur + 100, int(cur * 1.5)))
+        box = Gtk.Box(spacing=10, halign=Gtk.Align.CENTER)
+        box.append(spin)
+        box.append(Gtk.Label(label="GiB"))
+        d = Adw.AlertDialog(heading="Image vergrößern",
+                            body=f"Das Image ist zurzeit {cur} GiB groß. Es belegt auf dem NAS weiterhin nur "
+                                 "so viel Platz, wie tatsächlich gesichert ist. Verkleinern ist später nicht "
+                                 "möglich.")
+        d.set_extra_child(box)
+        d.add_response("cancel", "Abbrechen")
+        d.add_response("ok", "Vergrößern")
+        d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+        d.set_close_response("cancel")
+        d.connect("response", lambda _d, r: r == "ok" and self.run_op(
+            "Image wird vergrößert", ["resize-image", str(int(spin.get_value()))],
+            lambda rc, l: rc == 0 and self.toast(f"Image auf {int(spin.get_value())} GiB vergrößert"),
+            cancellable=False))
+        d.present(self)
+
+    def wireless(self):
+        """Läuft die Verbindung zum Netzwerkziel über WLAN? (schnell, ohne das Ziel einzubinden)"""
+        try:
+            p = subprocess.run([sys.executable, CORE, "netcheck", "--json"], capture_output=True, text=True,
+                               timeout=8)
+            return bool(json.loads(p.stdout.strip().splitlines()[-1]).get("wireless"))
+        except Exception:
+            return False
 
     def _hero(self, cfg):
         d = self.listing or {}
@@ -706,8 +774,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     # ---- Aktionen
     def create(self):
-        d = Adw.AlertDialog(heading="Snapshot erstellen",
-                            body="Optional eine kurze Beschreibung, z.B. „vor Treiber-Update“.")
+        body = "Optional eine kurze Beschreibung, z.B. „vor Treiber-Update“."
+        if not [x for x in self.snaps if x.get("valid")] and self.wireless():
+            body += ("\n\nHinweis: Der erste Snapshot überträgt das ganze System, und du bist per WLAN "
+                     "verbunden. Mit LAN-Kabel geht es schneller und zuverlässiger.")
+        d = Adw.AlertDialog(heading="Snapshot erstellen", body=body)
         entry = Gtk.Entry(placeholder_text="Kommentar (optional)", activates_default=True)
         d.set_extra_child(entry)
         d.add_response("cancel", "Abbrechen")
@@ -979,6 +1050,12 @@ class RestoreDialog:
         page.add(g2)
 
         g3 = Adw.PreferencesGroup()
+        self.wlan_row = Adw.ActionRow(title="Verbindung über WLAN",
+                                      subtitle="Für die Wiederherstellung besser ein LAN-Kabel verwenden – bei "
+                                               "Aussetzern bricht sie sonst ab.", visible=False)
+        self.wlan_row.add_prefix(Gtk.Image(icon_name="network-wireless-symbolic", css_classes=["warning"]))
+        g3.add(self.wlan_row)
+        GLib.idle_add(lambda: self.wlan_row.set_visible(self.win.wireless()) and False)
         home = snap.get("include_home")
         note = Adw.ActionRow(
             title="Persönliche Dateien werden zurückgesetzt" if home else "Persönliche Dateien bleiben unverändert",
@@ -1092,11 +1169,15 @@ class RestoreDialog:
             return
         live = self.live()
         what = "das laufende System" if live else a[1]
-        d = Adw.AlertDialog(heading="Wirklich wiederherstellen?",
-                            body=f"Der Snapshot vom {fmt_when(self.snap['epoch'])} wird auf {what} "
-                                 "zurückgespielt. Seitdem hinzugekommene Systemdateien werden entfernt.")
+        body = (f"Der Snapshot vom {fmt_when(self.snap['epoch'])} wird auf {what} "
+                "zurückgespielt. Seitdem hinzugekommene Systemdateien werden entfernt.")
+        wlan = self.win.wireless()
+        if wlan:
+            body += ("\n\n⚠ Du bist per WLAN verbunden. Bricht die Verbindung ab, ist das Ziel nur teilweise "
+                     "wiederhergestellt. Am besten jetzt ein LAN-Kabel anschließen.")
+        d = Adw.AlertDialog(heading="Wirklich wiederherstellen?", body=body)
         d.add_response("cancel", "Abbrechen")
-        d.add_response("go", "Wiederherstellen")
+        d.add_response("go", "Trotzdem wiederherstellen" if wlan else "Wiederherstellen")
         d.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE)
         d.set_close_response("cancel")
 
@@ -1688,6 +1769,11 @@ class SettingsDialog:
         self.s_minfree = Adw.SpinRow.new_with_range(0, 10000, 1)
         self.s_minfree.set_title("Mindestens frei lassen (GiB)")
         self.s_minfree.set_value(float(self.cfg["min_free_gb"]))
+        self.sw_cleanup = Adw.SwitchRow(title="Bei Platzmangel automatisch aufräumen",
+                                        subtitle="Löscht die ältesten automatischen Snapshots – nur wenn es "
+                                                 "wirklich hilft. Manuelle Snapshots bleiben immer erhalten.",
+                                        active=bool(self.cfg.get("auto_cleanup", True)))
+        g.add(self.sw_cleanup)
         g.add(self.e_mopts)
         g.add(self.s_minfree)
         p.add(g)
@@ -1732,6 +1818,21 @@ class SettingsDialog:
         for w in (self.s_phkeep, self.s_phint, self.sw_phabort):
             self.ex_ph.add_row(w)
         g.add(self.ex_ph)
+        p.add(g)
+        nt = self.cfg.get("notify") or {}
+        g = Adw.PreferencesGroup(title="Benachrichtigungen",
+                                 description="Meldung auf dem Desktop, wenn eine automatische Sicherung "
+                                             "fehlschlägt oder zu lange keine erfolgreiche Sicherung lief. Ist das "
+                                             "NAS nur nicht erreichbar (z.B. unterwegs), wird erst nach der "
+                                             "eingestellten Zeit gewarnt.")
+        self.ex_notify = Adw.ExpanderRow(title="Bei Problemen benachrichtigen", show_enable_switch=True,
+                                         enable_expansion=bool(nt.get("enabled", True)))
+        self.ex_notify.add_prefix(Gtk.Image(icon_name="preferences-system-notifications-symbolic"))
+        self.s_overdue = Adw.SpinRow.new_with_range(1, 60, 1)
+        self.s_overdue.set_title("Warnen, wenn die letzte Sicherung älter ist als (Tage)")
+        self.s_overdue.set_value(float(nt.get("overdue_days", 3) or 3))
+        self.ex_notify.add_row(self.s_overdue)
+        g.add(self.ex_notify)
         p.add(g)
         return p
 
@@ -1825,6 +1926,9 @@ class SettingsDialog:
         c["pacman_hook"] = {"enabled": self.ex_ph.get_enable_expansion(), "keep": int(self.s_phkeep.get_value()),
                             "min_interval_minutes": int(self.s_phint.get_value()),
                             "abort_on_fail": self.sw_phabort.get_active()}
+        c["notify"] = {"enabled": self.ex_notify.get_enable_expansion(),
+                       "overdue_days": int(self.s_overdue.get_value())}
+        c["auto_cleanup"] = self.sw_cleanup.get_active()
         c["include_home"] = self.sw_home.get_active()
         c["exclude_pacman_cache"] = self.sw_cache.get_active()
         c["exclude"] = [r[0] for r in self.ex_rows]

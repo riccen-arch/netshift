@@ -27,12 +27,16 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 ETC_DIR = os.environ.get("NETSHIFT_ETC", "/etc/netshift")
 CONFIG_PATH = os.environ.get("NETSHIFT_CONFIG", os.path.join(ETC_DIR, "config.json"))
 RUN_DIR = os.environ.get("NETSHIFT_RUNDIR", "/run/netshift")
+STATE_DIR = os.environ.get("NETSHIFT_STATEDIR", "/var/lib/netshift")
+NET_TIMEOUT = int(os.environ.get("NETSHIFT_NET_TIMEOUT", "45"))   # Sekunden ohne Verbindung → Abbruch
+NET_PROBE = None          # (host, port) des Netzwerkziels, gesetzt beim Öffnen des Ziels
 SOURCE = os.environ.get("NETSHIFT_SOURCE", "/")  # nur für Tests ändern
 GUI_MODE = os.environ.get("NETSHIFT_GUI") == "1"
 TIME_FMT = "%Y-%m-%d_%H-%M-%S"
@@ -106,6 +110,8 @@ DEFAULT_CONFIG = {
         "monthly": {"enabled": False, "keep": 3},
     },
     "rescue_mode": False,            # Rettungssystem (USB-Stick): nur wiederherstellen
+    "notify": {"enabled": True, "overdue_days": 3},
+    "auto_cleanup": True,            # bei Platzmangel älteste automatische Snapshots löschen
     "pacman_hook": {"enabled": False, "keep": 5, "min_interval_minutes": 30,
                     "abort_on_fail": False},
     "min_free_gb": 5,
@@ -116,11 +122,13 @@ DEFAULT_CONFIG = {
 # --------------------------------------------------------------------------- Hilfen
 
 class NetshiftError(Exception):
-    pass
+    def __init__(self, msg, kind="error"):
+        super().__init__(msg)
+        self.kind = kind          # error | offline | space
 
 
-def die(msg):
-    raise NetshiftError(msg)
+def die(msg, kind="error"):
+    raise NetshiftError(msg, kind)
 
 
 def info(msg):
@@ -131,16 +139,18 @@ def warn(msg):
     print("WARNUNG: " + msg, file=sys.stderr if not GUI_MODE else sys.stdout, flush=True)
 
 
-def run(cmd, check=True, capture=False, input=None, quiet=False, env=None):
+def run(cmd, check=True, capture=False, input=None, quiet=False, env=None, timeout=None):
     if not quiet and os.environ.get("NETSHIFT_DEBUG"):
         print("+ " + " ".join(shlex.quote(c) for c in cmd), flush=True)
     try:
         p = subprocess.run(cmd, input=input, env=env,
                            stdout=subprocess.PIPE if capture else None,
                            stderr=subprocess.PIPE if capture else None,
-                           text=True)
+                           text=True, timeout=timeout)
     except FileNotFoundError:
         die(f"Programm nicht gefunden: {cmd[0]} – bitte installieren.")
+    except subprocess.TimeoutExpired:
+        p = subprocess.CompletedProcess(cmd, 124, "", f"Zeitüberschreitung nach {timeout} s")
     if check and p.returncode != 0:
         err = (p.stderr or "").strip() if capture else ""
         die(f"Befehl fehlgeschlagen ({p.returncode}): {' '.join(cmd)}" + (f"\n{err}" if err else ""))
@@ -249,6 +259,253 @@ def mountinfo():
 def fs_type_of(path):
     p = run(["findmnt", "-n", "-o", "FSTYPE", "-T", path], check=False, capture=True, quiet=True)
     return (p.stdout or "").strip().splitlines()[0] if p.returncode == 0 and p.stdout.strip() else ""
+
+
+# --------------------------------------------------------------------------- Netzwerk
+
+def target_probe(t):
+    """(host, port) eines Netzwerkziels oder None bei lokalen Zielen."""
+    typ = t.get("type")
+    if typ == "smb":
+        return (t.get("server"), 445)
+    if typ == "nfs":
+        return (t.get("server"), 2049)
+    if typ == "ssh":
+        return (t.get("server"), int(t.get("ssh_port") or 22))
+    return None
+
+
+def reachable(probe, timeout=4):
+    if not probe or not probe[0]:
+        return True
+    try:
+        with socket.create_connection(probe, timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def offline_msg(probe):
+    return (f"Das Sicherungsziel {probe[0]} ist nicht erreichbar. Ist das NAS eingeschaltet und der "
+            "Rechner mit dem Heimnetz verbunden?")
+
+
+def route_info(host):
+    """Über welche Netzwerkschnittstelle geht die Verbindung zum Ziel – und ist es WLAN?"""
+    res = {"host": host, "iface": None, "wireless": False, "ip": None}
+    try:
+        res["ip"] = socket.getaddrinfo(host, None)[0][4][0]
+    except OSError:
+        return res
+    dev = None
+    if shutil.which("ip"):
+        p = run(["ip", "-j", "route", "get", res["ip"]], check=False, capture=True, quiet=True)
+        try:
+            dev = json.loads(p.stdout or "[]")[0].get("dev")
+        except (ValueError, IndexError, AttributeError):
+            dev = None
+    if dev is None and ":" not in res["ip"]:
+        dev = _route_dev_proc(res["ip"])
+    res["iface"] = dev
+    if dev:
+        res["wireless"] = os.path.isdir(f"/sys/class/net/{dev}/wireless") or dev.startswith("wl")
+    return res
+
+
+def _route_dev_proc(ip):
+    """Schnittstelle zu einer IPv4-Adresse aus /proc/net/route (längster Präfix)."""
+    import struct
+    try:
+        target = struct.unpack("<I", socket.inet_aton(ip))[0]
+        best, best_len = None, -1
+        with open("/proc/net/route") as f:
+            next(f)
+            for line in f:
+                c = line.split()
+                dest, mask = int(c[1], 16), int(c[7], 16)
+                if target & mask == dest:
+                    plen = bin(mask).count("1")
+                    if plen > best_len:
+                        best, best_len = c[0], plen
+        return best
+    except (OSError, ValueError, StopIteration):
+        return None
+
+
+# --------------------------------------------------------------------------- Status & Benachrichtigung
+
+AUTO_TAGS = set("BHDWMP")      # automatisch erstellte Snapshots
+
+
+def status_path():
+    return os.path.join(STATE_DIR, "status.json")
+
+
+def load_status():
+    try:
+        with open(status_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_status(st):
+    try:
+        os.makedirs(STATE_DIR, mode=0o755, exist_ok=True)
+        tmp = status_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(st, f, indent=2, ensure_ascii=False)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, status_path())
+    except OSError:
+        pass
+
+
+def sync_status(storage, st=None):
+    """Status aus dem geöffneten Ziel aktualisieren (letzte Sicherungen, Platz)."""
+    own = st is None
+    st = load_status() if own else st
+    snaps = [x for x in snapshots(storage) if x["valid"]]
+    if snaps:
+        st["last_success"] = max(st.get("last_success") or 0, snaps[-1]["epoch"])
+    by_tag = {}
+    for x in snaps:
+        for tg in x["tags"]:
+            by_tag[tg] = max(by_tag.get(tg, 0), x["epoch"])
+    st["last_by_tag"] = by_tag
+    try:
+        free, total = storage.free()
+        st["space"] = {"free": free, "total": total, "time": time.time()}
+    except Exception:
+        pass
+    if own:
+        save_status(st)
+    return st
+
+
+def record_success(st):
+    st["last_success"] = time.time()
+    st["last_error"] = None
+    st["failures"] = 0
+
+
+def record_failure(st, err, source="auto"):
+    kind = getattr(err, "kind", "error")
+    st["last_error"] = {"time": time.time(), "msg": str(err), "kind": kind, "source": source}
+    st["failures"] = int(st.get("failures") or 0) + 1
+
+
+def space_need(cfg, total):
+    """Mindestens frei zu haltender Platz auf dem Ziel."""
+    return max(float(cfg.get("min_free_gb", 5)) * 1024 ** 3, 0.05 * (total or 0))
+
+
+def health(cfg, st=None, now=None):
+    """Liste der aktuellen Probleme [{kind, level, title, body}]."""
+    if cfg.get("rescue_mode"):
+        return []
+    st = load_status() if st is None else st
+    now = now or time.time()
+    out = []
+    last = st.get("last_success")
+    err = st.get("last_error")
+    if err and err.get("kind") != "offline" and (not last or err["time"] > last):
+        when = dt.datetime.fromtimestamp(err["time"]).strftime("%d.%m. %H:%M")
+        title = ("Letzte automatische Sicherung fehlgeschlagen" if err.get("source") != "manual"
+                 else "Letzte Sicherung fehlgeschlagen")
+        out.append({"kind": "space" if err.get("kind") == "space" else "error", "level": "error",
+                    "title": title, "body": f"{when}: {err['msg'].splitlines()[0]}"})
+    days = float((cfg.get("notify") or {}).get("overdue_days", 3) or 0)
+    auto = any(cfg["schedule"].get(l, {}).get("enabled") for l in ("hourly", "daily", "weekly", "monthly"))
+    if auto and days > 0:
+        ref = last or st.get("first_seen")
+        if ref and now - ref > days * 86400:
+            age = int((now - ref) // 86400)
+            body = (f"Die letzte erfolgreiche Sicherung ist {age} Tage alt." if last
+                    else f"Seit {age} Tagen wurde noch keine Sicherung erstellt.")
+            if err and err.get("kind") == "offline" and (not last or err["time"] > last):
+                body += " Das Sicherungsziel war zuletzt nicht erreichbar."
+            out.append({"kind": "overdue", "level": "warning", "title": "Sicherung überfällig", "body": body})
+    sp = st.get("space") or {}
+    if sp.get("total") and not any(p["kind"] == "space" for p in out):
+        warn_at = max(2 * space_need(cfg, sp["total"]), 0.15 * sp["total"])
+        if sp["free"] < warn_at:
+            out.append({"kind": "space", "level": "warning", "title": "Sicherungsziel fast voll",
+                        "body": f"Noch {human(sp['free'])} von {human(sp['total'])} frei."})
+    return out
+
+
+def _notify_targets():
+    """Session-Busse der angemeldeten Benutzer: [(benutzername|None, busadresse)]."""
+    if os.environ.get("NETSHIFT_NOTIFY_BUS"):
+        return [(None, os.environ["NETSHIFT_NOTIFY_BUS"])]
+    out = []
+    import pwd
+    try:
+        uids = [int(d) for d in os.listdir("/run/user") if d.isdigit() and int(d) >= 1000]
+    except OSError:
+        uids = []
+    for uid in uids:
+        bus = f"/run/user/{uid}/bus"
+        if os.path.exists(bus):
+            try:
+                out.append((pwd.getpwuid(uid).pw_name, f"unix:path={bus}"))
+            except KeyError:
+                pass
+    return out
+
+
+def _gv_str(s):
+    return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def desktop_notify(title, body, urgency=1):
+    """Benachrichtigung an alle angemeldeten Benutzer (über org.freedesktop.Notifications)."""
+    if not shutil.which("gdbus"):
+        return 0
+    sent = 0
+    for user, bus in _notify_targets():
+        cmd = ["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
+               "--object-path", "/org/freedesktop/Notifications",
+               "--method", "org.freedesktop.Notifications.Notify",
+               "'netshift'", "0", "'drive-harddisk'", _gv_str(title), _gv_str(body), "@as []",
+               "{'urgency': <byte %d>, 'desktop-entry': <'netshift'>}" % urgency, "int32 -1"]
+        env_cmd = ["env", f"DBUS_SESSION_BUS_ADDRESS={bus}"] + cmd
+        if user and os.geteuid() == 0:
+            env_cmd = ["runuser", "-u", user, "--"] + env_cmd
+        if run(env_cmd, check=False, capture=True, quiet=True, timeout=10).returncode == 0:
+            sent += 1
+    return sent
+
+
+def notify_health(cfg, st):
+    """Probleme melden – gedrosselt, damit nicht jede Stunde dieselbe Meldung kommt."""
+    if cfg.get("rescue_mode") or not (cfg.get("notify") or {}).get("enabled", True):
+        return
+    now = time.time()
+    notified = st.setdefault("notified", {})
+    problems = health(cfg, st, now)
+    err = st.get("last_error") or {}
+    repeat = {"error": 86400, "overdue": 86400, "space": 3 * 86400}
+    current = set()
+    for p in problems:
+        if p["kind"] == "error" and err.get("source") == "manual":
+            continue                      # sieht der Benutzer ohnehin
+        key = p["kind"] + ":" + (str(int(err.get("time", 0))) if p["kind"] == "error" else "")
+        current.add(p["kind"])
+        last = notified.get(p["kind"], {})
+        if last.get("key") == key and now - last.get("time", 0) < repeat[p["kind"]]:
+            continue
+        desktop_notify("netshift: " + p["title"], p["body"], 2 if p["level"] == "error" else 1)
+        notified[p["kind"]] = {"key": key, "time": now}
+    # Entwarnung, wenn ein gemeldetes Problem behoben ist
+    solved = [k for k in list(notified) if k in ("error", "overdue") and k not in current]
+    if solved:
+        desktop_notify("netshift: Sicherung läuft wieder",
+                       "Die letzte Sicherung war erfolgreich." if st.get("last_success") else "Problem behoben.")
+    for k in list(notified):
+        if k not in current:
+            del notified[k]
 
 
 class Lock:
@@ -483,9 +740,16 @@ class Target:
 
     # ---- Öffnen
     def open(self):
+        global NET_PROBE
         self.validate()
         os.makedirs(RUN_DIR, mode=0o755, exist_ok=True)
         typ = self.t["type"]
+        NET_PROBE = target_probe(self.t)
+        if os.environ.get("NETSHIFT_TEST_PROBE"):            # nur für Tests
+            h, _, port = os.environ["NETSHIFT_TEST_PROBE"].rpartition(":")
+            NET_PROBE = (h, int(port))
+        if NET_PROBE and not reachable(NET_PROBE):
+            die(offline_msg(NET_PROBE), kind="offline")
         try:
             if typ == "ssh":
                 self.mode = "ssh"
@@ -654,24 +918,33 @@ class Target:
             _umount(self.share_mp)
 
 
-def _umount(mp):
+def _umount(mp, fast=False):
+    """Aushängen – hängt nie: bei toter Verbindung wird verzögert (lazy) ausgehängt."""
     if not os.path.ismount(mp):
         return
-    os.sync()
-    for _ in range(5):
-        if run(["umount", mp], check=False, capture=True).returncode == 0:
-            return
-        time.sleep(1)
-    warn(f"{mp} ist noch belegt – wird verzögert ausgehängt.")
-    run(["umount", "-l", mp], check=False, capture=True)
+    if not fast:
+        run(["sync", "-f", mp], check=False, capture=True, quiet=True, timeout=20)
+        for _ in range(3):
+            if run(["umount", mp], check=False, capture=True, timeout=20).returncode == 0:
+                return
+            time.sleep(1)
+        warn(f"{mp} lässt sich nicht normal aushängen – wird verzögert ausgehängt.")
+    run(["umount", "-l", mp], check=False, capture=True, timeout=10)
 
 
-def unmount_all(cfg):
+def unmount_all(cfg, fast=False):
     try:
         os.remove(os.path.join(RUN_DIR, "keep-mounted"))
     except FileNotFoundError:
         pass
     t = Target(cfg)
+    if fast:
+        _umount(t.image_mp, fast=True)
+        if os.path.exists("/dev/mapper/" + t.mapper):
+            run(["cryptsetup", "close", t.mapper], check=False, capture=True, timeout=10)
+        if os.path.ismount(t.share_mp):
+            run(["umount", "-f", "-l", t.share_mp], check=False, capture=True, timeout=10)
+        return
     t.close(force=True)
 
 
@@ -755,14 +1028,57 @@ def write_exclude_file(patterns):
 PROGRESS_RE = re.compile(r"^\s*([\d.,]+\s*[KMGTP]?i?B?)\s+(\d{1,3})%\s+(\S+)\s+(\d+:\d{2}:\d{2})")
 
 
-def run_rsync(cmd):
+def _net_watch(p, stop, state):
+    """Prüft alle 5 s, ob das Netzwerkziel erreichbar ist; bricht rsync nach NET_TIMEOUT ab."""
+    down = None
+    while not stop.wait(5):
+        if reachable(NET_PROBE, timeout=4):
+            if down is not None:
+                print("@@PHASE Verbindung wieder da – geht weiter…" if GUI_MODE
+                      else "Verbindung zum Sicherungsziel wieder da.", flush=True)
+            down = None
+            continue
+        down = down or time.time() - 5
+        gone = int(time.time() - down)
+        if GUI_MODE:
+            print(f"@@PHASE Verbindung zum Sicherungsziel unterbrochen – warte… ({gone} s)", flush=True)
+        elif gone < 10:
+            print("\nWARNUNG: Verbindung zum Sicherungsziel unterbrochen – warte…", flush=True)
+        if gone >= NET_TIMEOUT:
+            state["lost"] = gone
+            p.terminate()
+            try:
+                p.wait(10)
+            except subprocess.TimeoutExpired:
+                p.kill()
+            return
+
+
+def run_rsync(cmd, lost_hint=""):
+    """rsync ausführen (im GUI-Modus mit maschinenlesbarem Fortschritt) und die Verbindung überwachen."""
     if os.environ.get("NETSHIFT_DEBUG"):
         print("+ " + " ".join(shlex.quote(c) for c in cmd), flush=True)
-    if not GUI_MODE:
-        return subprocess.call(cmd)
-    # GUI-Modus: Fortschritt maschinenlesbar ausgeben
-    print("@@PHASE Dateiliste wird erstellt…", flush=True)
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if GUI_MODE:
+        print("@@PHASE Dateiliste wird erstellt…", flush=True)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE if GUI_MODE else None,
+                         stderr=subprocess.STDOUT if GUI_MODE else None)
+    stop, state = threading.Event(), {}
+    if NET_PROBE:
+        threading.Thread(target=_net_watch, args=(p, stop, state), daemon=True).start()
+    try:
+        rc = _rsync_output(p) if GUI_MODE else p.wait()
+    except KeyboardInterrupt:
+        p.terminate()
+        raise
+    finally:
+        stop.set()
+    if state.get("lost"):
+        die(f"Die Verbindung zum Sicherungsziel ist abgebrochen (seit {state['lost']} s nicht erreichbar)."
+            + (" " + lost_hint if lost_hint else ""), kind="offline")
+    return rc
+
+
+def _rsync_output(p):
     buf = b""
     last = 0.0
     best = 0
@@ -833,11 +1149,16 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
             "zwischen den Sicherungen landet, wurde abgebrochen.\n"
             "Falls du diesen Rechner nur umbenannt hast: sudo netshift create --allow-other-host")
     free, total = storage.free()
-    min_free = float(cfg.get("min_free_gb", 5)) * 1024 ** 3
-    if total and free < min_free:
-        die(f"Zu wenig freier Speicher auf dem Ziel ({human(free)} frei, "
-            f"Minimum {cfg.get('min_free_gb')} GiB). Alte Snapshots löschen"
-            + (" oder Image vergrößern ('netshift resize-image')." if target.mode == "image" else "."))
+    need_free = space_need(cfg, total)
+    if total and free < need_free and cfg.get("auto_cleanup", True):
+        cleanup_for_space(cfg, storage, need_free)
+        free, total = storage.free()
+    if total and free < need_free:
+        die(f"Zu wenig freier Speicher auf dem Sicherungsziel ({human(free)} frei, benötigt mindestens "
+            f"{human(need_free)}). "
+            + ("Image vergrößern (netshift → Hinweis „Vergrößern“ oder 'sudo netshift resize-image GRÖSSE') "
+               "oder alte Snapshots löschen." if target.mode == "image" else "Alte Snapshots löschen."),
+            kind="space")
     snaps = [s for s in snapshots(storage) if s["valid"]]
     prev = snaps[-1] if snaps else None
     name = dt.datetime.now().strftime(TIME_FMT)
@@ -857,9 +1178,15 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
         if prev:
             cmd.append("--link-dest=" + storage.abs(prev["name"]) + "/localhost")
         cmd += [SOURCE.rstrip("/") + "/", storage.loc(INPROGRESS)]
-        rc = run_rsync(cmd)
+        rc = run_rsync(cmd, "Der angefangene Snapshot wird beim nächsten Mal fortgesetzt.")
     finally:
         os.unlink(exfile)
+    if rc not in (0, 24):
+        f2, t2 = storage.free()
+        if t2 and f2 < max(0.01 * t2, 256 * 1024 ** 2):
+            die("Das Sicherungsziel ist voll – der Snapshot konnte nicht fertiggestellt werden. "
+                + ("Bitte das Image vergrößern oder alte Snapshots löschen." if target.mode == "image"
+                   else "Bitte alte Snapshots löschen."), kind="space")
     if rc not in (0, 23, 24):
         die(f"rsync ist mit Fehler {rc} abgebrochen. Der unvollständige Snapshot bleibt als "
             f"'{INPROGRESS}' liegen und wird beim nächsten Lauf fortgesetzt.")
@@ -884,6 +1211,63 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
     storage.rename(INPROGRESS, name)
     info(f"Snapshot {name} erfolgreich erstellt ({inf['duration_s']} s).")
     return inf
+
+
+def _freeable(storage, names):
+    """Wie viel Platz würde frei, wenn ALLE genannten Snapshots gelöscht würden?
+    (Dateien zählen nur, wenn keine anderen Snapshots per Hardlink darauf verweisen.)"""
+    seen, total = {}, 0
+    for n in names:
+        stack = [storage.abs(n)]
+        while stack:
+            d = stack.pop()
+            try:
+                it = os.scandir(d)
+            except OSError:
+                continue
+            with it:
+                for e in it:
+                    try:
+                        st = e.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if e.is_dir(follow_symlinks=False):
+                        total += st.st_blocks * 512
+                        stack.append(e.path)
+                    else:
+                        rec = seen.setdefault(st.st_ino, [st.st_blocks * 512, 0, st.st_nlink])
+                        rec[1] += 1
+    return total + sum(b for b, here, nlink in seen.values() if here >= nlink)
+
+
+def cleanup_for_space(cfg, storage, need_free):
+    """Älteste automatische Snapshots löschen, bis genug Platz frei ist – aber nur, wenn das
+    überhaupt reicht. Manuelle Snapshots, Sicherheits-Snapshots und der neueste bleiben immer."""
+    snaps = [x for x in snapshots(storage) if x["valid"]]
+    candidates = [x for x in snaps[:-1] if x["tags"] and set(x["tags"]) <= AUTO_TAGS]
+    deleted = []
+    if not candidates:
+        return deleted
+    if storage.remote:
+        info("Platzmangel: Bei SSH-Zielen werden Snapshots nicht automatisch gelöscht.")
+        return deleted
+    free, _ = storage.free()
+    info(f"Platzmangel ({human(free)} frei) – prüfe, ob das Löschen alter automatischer Snapshots reicht…")
+    possible = _freeable(storage, [x["name"] for x in candidates])
+    if free + possible < need_free:
+        info(f"Das Löschen aller {len(candidates)} automatischen Snapshots würde nur {human(possible)} "
+             "freigeben und nicht reichen – es wird nichts gelöscht.")
+        return deleted
+    for x in candidates:
+        free, _ = storage.free()
+        if free >= need_free:
+            break
+        info(f"Platzmangel: lösche ältesten automatischen Snapshot {x['name']} ({','.join(x['tags'])})")
+        storage.delete(x["name"])
+        deleted.append(x["name"])
+    if deleted:
+        info(f"{len(deleted)} automatische(r) Snapshot(s) gelöscht, um Platz zu schaffen.")
+    return deleted
 
 
 def prune(cfg, storage, extra_keep=None):
@@ -1074,7 +1458,10 @@ def restore(cfg, target, storage, snap, dest="/", dry_run=False, keep_fstab=Fals
             cmd += ["--dry-run", "--itemize-changes", "--out-format=%i %n%L"]
         cmd += storage.rsync_opts()
         cmd += [storage.loc(snap["name"]), dest.rstrip("/") + "/"]
-        rc = run_rsync(cmd)
+        rc = run_rsync(cmd, "" if dry_run else
+                       "Das Ziel ist jetzt nur teilweise wiederhergestellt. Bitte bei stabiler Verbindung "
+                       "(am besten per LAN-Kabel) erneut wiederherstellen – bereits übertragene Dateien "
+                       "werden dabei übersprungen.")
     finally:
         os.unlink(exfile)
     if rc not in (0, 23, 24):
@@ -1145,10 +1532,21 @@ def cmd_create(cfg, args):
     tags = list(args.tags.upper()) if args.tags else ["O"]
     if args.allow_other_host:
         cfg["_allow_other_host"] = True
-    with Session(cfg) as s:
-        create_snapshot(cfg, s.target, s.storage, tags, args.comment or "")
-        if args.prune:
-            prune(cfg, s.storage)
+    st = load_status()
+    try:
+        with Session(cfg) as s:
+            create_snapshot(cfg, s.target, s.storage, tags, args.comment or "")
+            if args.prune:
+                prune(cfg, s.storage)
+            record_success(st)
+            sync_status(s.storage, st)
+    except NetshiftError as e:
+        if "anderer netshift-Vorgang" not in str(e):
+            record_failure(st, e, "manual")
+        raise
+    finally:
+        notify_health(cfg, st)      # ggf. Entwarnung
+        save_status(st)
 
 
 def fmt_snap_row(i, s):
@@ -1164,11 +1562,12 @@ def cmd_list(cfg, args):
         snaps = snapshots(s.storage)
         raw = s.storage.list_raw()
         free, total = s.storage.free()
+        st = sync_status(s.storage) if not cfg.get("rescue_mode") else {}
         if args.json:
             print(json.dumps({
                 "target": s.target.describe(), "mode": s.target.mode,
                 "free": free, "total": total, "in_progress": INPROGRESS in raw,
-                "snapshots": snaps}, ensure_ascii=False))
+                "health": health(cfg, st), "snapshots": snaps}, ensure_ascii=False))
             return
         info(f"Ziel: {s.target.describe()}  [{s.target.mode}]  frei: {human(free)} von {human(total)}")
         if not snaps:
@@ -1326,6 +1725,10 @@ def cmd_restore(cfg, args):
                 restore(cfg, s.target, s.storage, snap, dest_path, dry_run=True,
                         keep_fstab=args.keep_fstab)
                 return
+            probe = target_probe(cfg["target"])
+            if probe and route_info(probe[0]).get("wireless"):
+                warn("Die Verbindung zum Sicherungsziel läuft über WLAN. Bei Aussetzern bricht die "
+                     "Wiederherstellung ab – ein LAN-Kabel ist deutlich sicherer.")
             if not confirm(f"Snapshot {snap['name']} ({snap.get('comment') or 'ohne Kommentar'}) "
                            f"auf {what} zurückspielen? Dateien, die seitdem neu hinzugekommen sind, "
                            f"werden gelöscht{' (Home-Verzeichnisse bleiben unberührt)' if not snap.get('include_home') else ''}.",
@@ -1386,44 +1789,56 @@ def cmd_restore_files(cfg, args):
 
 
 def cmd_check(cfg, args):
-    """Vom Timer aufgerufen: fällige geplante Snapshots erstellen + aufräumen."""
+    """Vom Timer aufgerufen: fällige Snapshots erstellen, aufräumen, Probleme melden."""
     sched = cfg["schedule"]
     if cfg.get("rescue_mode"):
         return
     if args.boot and not sched.get("boot", {}).get("enabled"):
         return
-    if not args.boot and not any(sched.get(l, {}).get("enabled") for l, _, _ in LEVELS):
+    enabled = [(lvl, tag, iv) for lvl, tag, iv in LEVELS if sched.get(lvl, {}).get("enabled")]
+    if not args.boot and not enabled:
         return
+    st = load_status()
+    st.setdefault("first_seen", time.time())
+    now = time.time()
+    by_tag = st.get("last_by_tag")
+    # Fällig? – zuerst anhand des gespeicherten Status, damit das NAS nicht jede Stunde geweckt wird
+    if by_tag is not None and not args.boot:
+        due = [tag for _, tag, iv in enabled if now - by_tag.get(tag, 0) >= iv - 900]
+        if not due:
+            info("Kein geplanter Snapshot fällig.")
+            notify_health(cfg, st)
+            save_status(st)
+            return
     try:
-        sess = Session(cfg, wait=False).__enter__()
+        with Session(cfg, wait=False) as sess:
+            sync_status(sess.storage, st)
+            snaps = [x for x in snapshots(sess.storage) if x["valid"]]
+            due = ["B"] if args.boot else []
+            for _, tag, iv in enabled:
+                last = max((x["epoch"] for x in snaps if tag in x["tags"]), default=0)
+                if now - last >= iv - 900:
+                    due.append(tag)
+            other = foreign_host(sess.storage)
+            if due and other:
+                info(f"Übersprungen: Die Sicherung gehört zum Rechner '{other}', nicht zu '{hostname()}'.")
+                return
+            if due:
+                create_snapshot(cfg, sess.target, sess.storage, due, "Geplant")
+                record_success(st)
+            else:
+                info("Kein geplanter Snapshot fällig.")
+            prune(cfg, sess.storage)
+            sync_status(sess.storage, st)
     except NetshiftError as e:
         if "anderer netshift-Vorgang" in str(e):
             info("Anderer Vorgang läuft – übersprungen.")
             return
+        record_failure(st, e)
         raise
-    try:
-        snaps = [x for x in snapshots(sess.storage) if x["valid"]]
-        now = time.time()
-        due = []
-        if args.boot:
-            due.append("B")
-        for lvl, tag, interval in LEVELS:
-            if not sched.get(lvl, {}).get("enabled"):
-                continue
-            last = max((x["epoch"] for x in snaps if tag in x["tags"]), default=0)
-            if now - last >= interval - 900:
-                due.append(tag)
-        other = foreign_host(sess.storage)
-        if due and other:
-            info(f"Übersprungen: Die Sicherung gehört zum Rechner '{other}', nicht zu '{hostname()}'.")
-            return
-        if due:
-            create_snapshot(cfg, sess.target, sess.storage, due, "Geplant")
-        else:
-            info("Kein geplanter Snapshot fällig.")
-        prune(cfg, sess.storage)
     finally:
-        sess.__exit__(None, None, None)
+        notify_health(cfg, st)
+        save_status(st)
 
 
 def cmd_pacman_hook(cfg, args):
@@ -1431,6 +1846,7 @@ def cmd_pacman_hook(cfg, args):
     if not ph.get("enabled") or cfg.get("rescue_mode"):
         return 0
     pkgs = [l.strip() for l in sys.stdin.read().split() if l.strip()] if not sys.stdin.isatty() else []
+    st = load_status()
     try:
         with Session(cfg) as s:
             snaps = [x for x in snapshots(s.storage) if x["valid"] and "P" in x["tags"]]
@@ -1443,9 +1859,16 @@ def cmd_pacman_hook(cfg, args):
             short = " ".join(pkgs[:8]) + (f" (+{len(pkgs) - 8})" if len(pkgs) > 8 else "")
             create_snapshot(cfg, s.target, s.storage, ["P"], f"pacman: {short}".strip())
             prune(cfg, s.storage)
+            record_success(st)
+            sync_status(s.storage, st)
     except NetshiftError as e:
         print(f"netshift: Snapshot vor Paketänderung fehlgeschlagen: {e}", file=sys.stderr)
+        record_failure(st, e)
+        notify_health(cfg, st)
+        save_status(st)
         return 1 if ph.get("abort_on_fail") else 0
+    notify_health(cfg, st)
+    save_status(st)
     return 0
 
 
@@ -1468,6 +1891,11 @@ def cmd_mount(cfg, args):
 
 
 def cmd_umount(cfg, args):
+    if args.shutdown:
+        # Beim Herunterfahren: nicht auf andere Vorgänge warten, nie hängen bleiben
+        unmount_all(cfg, fast=True)
+        info("netshift: Sicherungsziel ausgehängt.")
+        return
     lock = Lock()
     try:
         unmount_all(cfg)
@@ -1476,16 +1904,35 @@ def cmd_umount(cfg, args):
         lock.release()
 
 
+def cmd_netcheck(cfg, args):
+    probe = target_probe(cfg["target"])
+    if not probe:
+        res = {"network": False, "wireless": False, "reachable": True}
+    else:
+        res = route_info(probe[0])
+        res.update(network=True, reachable=reachable(probe))
+    if args.json:
+        print(json.dumps(res))
+        return
+    if not res["network"]:
+        info("Lokales Ziel – keine Netzwerkverbindung nötig.")
+        return
+    info(f"Ziel {probe[0]}: {'erreichbar' if res['reachable'] else 'NICHT erreichbar'}, "
+         f"Verbindung über {res.get('iface') or '?'}{' (WLAN)' if res['wireless'] else ''}")
+
+
 def cmd_status(cfg, args):
     t = Target(cfg)
     timers = {}
     for u in ("netshift-check.timer", "netshift-boot.timer"):
         p = run(["systemctl", "is-enabled", u], check=False, capture=True, quiet=True)
         timers[u] = (p.stdout or "").strip() or "unbekannt"
+    st = load_status()
     data = {"version": VERSION, "config": CONFIG_PATH, "target": t.describe(),
             "machine_name": cfg["machine_name"], "include_home": cfg["include_home"],
             "schedule": {k: v for k, v in cfg["schedule"].items() if v.get("enabled")},
-            "pacman_hook": cfg["pacman_hook"]["enabled"], "timers": timers}
+            "pacman_hook": cfg["pacman_hook"]["enabled"], "timers": timers,
+            "last_success": st.get("last_success"), "health": health(cfg, st)}
     if args.json:
         print(json.dumps(data, ensure_ascii=False))
         return
@@ -1498,8 +1945,12 @@ def cmd_status(cfg, args):
     sch = ", ".join(f"{k} (behalte {v['keep']})" for k, v in data["schedule"].items()) or "aus"
     info(f"Zeitplan:      {sch}")
     info(f"Pacman-Hook:   {'an' if data['pacman_hook'] else 'aus'}")
-    for u, st in timers.items():
-        info(f"{u}: {st}")
+    for u, stt in timers.items():
+        info(f"{u}: {stt}")
+    if data["last_success"]:
+        info(f"Letzte Sicherung: {dt.datetime.fromtimestamp(data['last_success']).strftime('%d.%m.%Y %H:%M')}")
+    for pr in data["health"]:
+        info(f"PROBLEM: {pr['title']} – {pr['body']}")
 
 
 def cmd_test(cfg, args):
@@ -1560,7 +2011,8 @@ def cmd_schedule_apply(cfg, args):
     boot = bool(sch.get("boot", {}).get("enabled"))
     if cfg.get("rescue_mode"):
         periodic = boot = False
-    for unit, on in (("netshift-check.timer", periodic), ("netshift-boot.timer", boot)):
+    for unit, on in (("netshift-check.timer", periodic), ("netshift-boot.timer", boot),
+                     ("netshift-shutdown.service", True)):
         run(["systemctl", "enable" if on else "disable", "--now", unit], check=False, capture=True)
         info(f"{unit}: {'aktiviert' if on else 'deaktiviert'}")
 
@@ -1728,7 +2180,10 @@ def build_parser():
     sp.add_parser("pacman-hook", help="(intern) vom pacman-Hook aufgerufen")
     m = sp.add_parser("mount", help="Snapshots zum Durchsuchen einbinden")
     m.add_argument("-q", "--quiet", action="store_true")
-    sp.add_parser("umount", help="Eingebundene Snapshots aushängen")
+    um = sp.add_parser("umount", help="Eingebundene Snapshots aushängen")
+    um.add_argument("--shutdown", action="store_true", help="(intern) schnell aushängen beim Herunterfahren")
+    nc = sp.add_parser("netcheck", help="Verbindung zum Netzwerkziel prüfen (WLAN?)")
+    nc.add_argument("--json", action="store_true")
     st = sp.add_parser("status", help="Konfiguration und Zeitplan anzeigen")
     st.add_argument("--json", action="store_true")
     sp.add_parser("test", help="Verbindung zum Ziel testen")
@@ -1758,7 +2213,7 @@ def main(argv=None):
         return 1
     cfg = load_config()
     handlers = {
-        "create": cmd_create, "list": cmd_list, "delete": cmd_delete, "comment": cmd_comment, "size": cmd_size, "unlock": cmd_unlock, "lock": cmd_lock,
+        "create": cmd_create, "list": cmd_list, "delete": cmd_delete, "comment": cmd_comment, "size": cmd_size, "unlock": cmd_unlock, "lock": cmd_lock, "netcheck": cmd_netcheck,
         "restore": cmd_restore, "restore-files": cmd_restore_files, "check": cmd_check,
         "pacman-hook": cmd_pacman_hook, "mount": cmd_mount, "umount": cmd_umount,
         "status": cmd_status, "test": cmd_test, "resize-image": cmd_resize_image,

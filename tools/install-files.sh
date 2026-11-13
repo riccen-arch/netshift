@@ -12,7 +12,7 @@ install -Dm755 netshift-gtk.py      "$D/usr/lib/netshift/netshift-gtk.py"
 install -dm755 "$D/usr/bin"
 ln -sf /usr/lib/netshift/netshift.py "$D/usr/bin/netshift"
 install -Dm755 data/netshift-gui    "$D/usr/bin/netshift-gui"
-for u in netshift-check.service netshift-check.timer netshift-boot.service netshift-boot.timer; do
+for u in netshift-check.service netshift-check.timer netshift-boot.service netshift-boot.timer netshift-shutdown.service; do
     install -Dm644 "data/$u" "$D/usr/lib/systemd/system/$u"
 done
 install -Dm644 data/00-netshift.hook         "$D/usr/share/libalpm/hooks/00-netshift.hook"

@@ -85,6 +85,28 @@ und den angezeigten `ssh-copy-id`-Befehl einmal ausführen. Ist der Server-Benut
 `/etc/netshift/image.key` – **diese Datei unbedingt zusätzlich sichern** (USB-Stick, Passwortmanager).
 Ohne sie ist eine Wiederherstellung vom Live-USB unmöglich.
 
+## Überwachung und Schutz
+
+**Benachrichtigungen:** Schlägt eine automatische Sicherung fehl, erscheint eine Meldung auf dem
+Desktop und oben in netshift ein Hinweis mit „Jetzt sichern“. Ist das NAS nur nicht erreichbar
+(z.B. mit dem Notebook unterwegs), meldet netshift sich erst, wenn die letzte erfolgreiche Sicherung
+älter als die eingestellte Zeit ist (Standard: 3 Tage). Dieselbe Meldung kommt höchstens einmal am
+Tag; sobald es wieder klappt, gibt es eine Entwarnung. Einstellbar unter *Einstellungen → Zeitplan →
+Benachrichtigungen*.
+
+**Verbindungsabbrüche:** netshift prüft während einer Sicherung oder Wiederherstellung laufend, ob
+das Ziel erreichbar ist. Kurze Aussetzer werden überbrückt; ist die Verbindung länger als 45 Sekunden
+weg, bricht netshift mit einer klaren Meldung ab, statt hängen zu bleiben. Ein angefangener
+Snapshot wird beim nächsten Mal fortgesetzt; eine abgebrochene Wiederherstellung einfach erneut
+starten. Vor einer Wiederherstellung über **WLAN** warnt netshift. Beim Herunterfahren wird das
+Sicherungsziel ausgehängt, solange das Netzwerk noch da ist – das System hängt nicht mehr.
+
+**Platzmangel:** Wird es auf dem Ziel eng, zeigt netshift das rechtzeitig an (mit „Vergrößern…“
+beim Image-Container). Reicht der Platz für einen Snapshot nicht, löscht netshift die ältesten
+**automatischen** Snapshots – aber nur, wenn das nachweislich genug Platz schafft, und nur so viele
+wie nötig. Manuelle Snapshots, Sicherheits-Snapshots und der neueste Snapshot bleiben immer
+erhalten. Abschaltbar unter *Einstellungen → Speicher*.
+
 ## Wiederherstellen
 
 ### Laufendes System (wie bei Timeshift)
@@ -148,6 +170,8 @@ netshift delete 1 2                      Löschen
 netshift comment 3 "funktioniert"        Kommentar ändern
 netshift size [3]                        Belegter Platz (nur dieser / gesamt)
 netshift unlock|lock /dev/…              Verschlüsselte Partition entsperren / sperren
+netshift netcheck                        Ziel erreichbar? Verbindung über WLAN?
+netshift status                          Übersicht inkl. letzter Sicherung und Problemen
 netshift mount / umount                  Snapshots zum Durchsuchen einbinden
 netshift test | status | setup           Verbindung testen / Übersicht / Einrichtung
 netshift resize-image 400                Image-Container vergrößern

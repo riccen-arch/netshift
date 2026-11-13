@@ -1,0 +1,16 @@
+[Unit]
+Description=netshift: Sicherungsziel vor dem Herunterfahren sauber aushängen
+# Durch "After=" wird dieser Dienst beim Herunterfahren VOR dem Netzwerk beendet –
+# so hängt nichts mehr an einer verschwundenen Netzwerkfreigabe.
+After=network-online.target remote-fs.target NetworkManager.service systemd-networkd.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/usr/bin/netshift umount --shutdown
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

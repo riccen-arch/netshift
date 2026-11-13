@@ -59,7 +59,7 @@ printf "${B}netshift %s – Installation${N}\n" "$VERSION"
 # --------------------------------------------------------------------------- Entfernen
 if [ "$UNINSTALL" = 1 ]; then
     step "Entferne netshift"
-    command -v systemctl >/dev/null && systemctl disable --now netshift-check.timer netshift-boot.timer >/dev/null 2>&1
+    command -v systemctl >/dev/null && systemctl disable --now netshift-check.timer netshift-boot.timer netshift-shutdown.service >/dev/null 2>&1
     if pacman -Qq netshift >/dev/null 2>&1; then
         pacman -R --noconfirm netshift >>"$LOG" 2>&1 && ok "Paket netshift entfernt"
     fi
@@ -183,6 +183,9 @@ DESTDIR="$ROOT" sh "$S/tools/install-files.sh" >>"$LOG" 2>&1 || fail "Kopieren d
 install -dm700 "$ROOT/etc/netshift"
 if command -v systemctl >/dev/null 2>&1 && [ -z "$ROOT" ]; then
     systemctl daemon-reload >/dev/null 2>&1
+    # sauberes Aushängen beim Herunterfahren
+    systemctl enable netshift-shutdown.service >/dev/null 2>&1
+    systemctl start netshift-shutdown.service >/dev/null 2>&1
     # Zeitplan gemäß vorhandener Konfiguration wieder aktivieren (bei Aktualisierung)
     [ -f /etc/netshift/config.json ] && /usr/bin/netshift schedule-apply >/dev/null 2>&1
 fi
