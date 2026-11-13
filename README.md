@@ -1,9 +1,31 @@
 # netshift
 
-> Lizenz: GPL-3.0-or-later
+**System-Snapshots für Manjaro/Arch** – wie Timeshift im rsync-Modus, aber mit **Netzwerkzielen**
+(SMB/Windows-Freigabe/NAS, NFS, SSH) für Sicherung *und* Wiederherstellung – inklusive
+Rettungsmodus für einen USB-Stick, wenn das System nicht mehr startet.
 
-System-Snapshots für Manjaro/Arch – wie Timeshift im rsync-Modus, aber mit **Netzwerkzielen**
-(SMB/Windows-Freigabe/NAS, NFS, SSH) für Sicherung *und* Wiederherstellung.
+<p align="center">
+  <img src="docs/screenshots/hauptfenster.png" alt="netshift Hauptfenster mit Snapshots auf einem NAS" width="820">
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/vorschau.png" alt="Vorschau der Änderungen vor einer Wiederherstellung"><br>
+      <sub><b>Vorschau vor dem Wiederherstellen</b> – was neu angelegt, überschrieben oder entfernt würde</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/einstellungen-dunkel.png" alt="Einstellungen im Dunkelmodus"><br>
+      <sub><b>Zeitplan &amp; Benachrichtigungen</b> – auch im Dunkelmodus</sub>
+    </td>
+  </tr>
+</table>
+
+```bash
+git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh install.sh
+```
+
+> Lizenz: GPL-3.0-or-later · Oberfläche: GTK4/libadwaita (klassische Tk-Oberfläche als Rückfall)
 
 ## Was netshift kann
 
