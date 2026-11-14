@@ -5,6 +5,9 @@ mkdir -p -m 0700 "$XDG_RUNTIME_DIR" /run/netshift-live
 export NETSHIFT_LIVE=1 NETSHIFT_LIVE_SESSION=1
 export GSETTINGS_BACKEND=memory GTK_A11Y=none NO_AT_BRIDGE=1
 export LANG=C.UTF-8
+# GTK: Software-Zeichnen (cairo) – zuverlässig auf jeder Grafik, auch ohne 3D-Treiber / in VMs.
+# Mit der Bootoption netshift.gl=1 wird stattdessen OpenGL verwendet.
+grep -qw netshift.gl=1 /proc/cmdline || export GSK_RENDERER=cairo
 
 # Sprache auch per Bootoption möglich: netshift.lang=de / netshift.lang=en
 for a in $(cat /proc/cmdline); do

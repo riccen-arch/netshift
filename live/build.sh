@@ -46,8 +46,10 @@ sed -i -e 's|^iso_name=.*|iso_name="netshift-live"|' \
        -e 's|^iso_publisher=.*|iso_publisher="netshift <https://github.com/riccen-arch/netshift>"|' \
        -e 's|^iso_application=.*|iso_application="netshift Live"|' \
        -e "s|^iso_version=.*|iso_version=\"$VERSION\"|" "$P/profiledef.sh"
-grep -rlZ "Arch Linux install medium" "$P/syslinux" "$P/grub" "$P/efiboot" 2>/dev/null \
-    | xargs -0 -r sed -i 's/Arch Linux install medium/netshift Live/g'
+grep -rlZ "Arch Linux" "$P/syslinux" "$P/grub" "$P/efiboot" 2>/dev/null | xargs -0 -r sed -i \
+    -e 's/Arch Linux install medium/netshift Live/g' \
+    -e 's/It allows you to install Arch Linux or perform system maintenance\./Back up or restore a computer with netshift (based on Arch Linux)./g' \
+    -e 's/^MENU TITLE Arch Linux$/MENU TITLE netshift Live/'
 
 mkarchiso -v -w "$WORK/work" -o "$OUT" "$P"
 cd "$OUT"
