@@ -454,6 +454,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.listing = None
         self.mounted_by_us = False
         self.unlocked = []          # von netshift entsperrte Partitionen
+        self._rescue = False
         self.list_job = None
         self._build()
         self._actions()
@@ -470,7 +471,12 @@ class MainWindow(Adw.ApplicationWindow):
                                      css_classes=["suggested-action"], action_name="win.create",
                                      tooltip_text=_('Neuen Snapshot erstellen (Strg+N)'))
         hb.pack_start(self.btn_create)
+        self.btn_offline = Gtk.Button(child=Adw.ButtonContent(icon_name="drive-harddisk-symbolic", label=_('Rechner sichern')),
+                                      css_classes=["suggested-action"], action_name="win.offline", visible=False,
+                                      tooltip_text=_('Die Festplatte des Rechners sichern, während er nicht läuft'))
+        hb.pack_start(self.btn_offline)
         menu = Gio.Menu()
+        menu.append(_('Anderes System sichern…'), "win.offline")
         menu.append(_('Einstellungen'), "win.settings")
         menu.append(_('Aktualisieren'), "win.refresh")
         sec = Gio.Menu()
@@ -521,7 +527,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _actions(self):
         for name, cb in (("create", self.create), ("refresh", self.refresh), ("settings", self.open_settings),
-                         ("about", self.about)):
+                         ("about", self.about), ("offline", self.offline)):
             a = Gio.SimpleAction.new(name, None)
             a.connect("activate", lambda *_a, f=cb: f())
             self.add_action(a)
@@ -545,8 +551,8 @@ class MainWindow(Adw.ApplicationWindow):
         return self.op.job is not None
 
     def set_actions_enabled(self, on):
-        for n in ("create", "refresh", "restore", "files", "browse", "delete"):
-            self.lookup_action(n).set_enabled(on)
+        for n in ("create", "refresh", "restore", "files", "browse", "delete", "offline"):
+            self.lookup_action(n).set_enabled(on and (n != "create" or not self._rescue))
 
     def run_op(self, title, args, on_done=None, cancellable=True):
         if self.busy():
@@ -597,7 +603,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def populate(self, cfg):
         rescue = bool(cfg.get("rescue_mode"))
+        self._rescue = rescue
         self.btn_create.set_visible(not rescue)
+        self.btn_offline.set_visible(rescue)
         self.lookup_action("create").set_enabled(not rescue)
         self.wtitle.set_title(_('netshift – Rettungssystem') if rescue else "netshift")
         child = self.list_box.get_first_child()
@@ -609,8 +617,11 @@ class MainWindow(Adw.ApplicationWindow):
             self.list_box.append(self._problem_card(pr, cfg))
         self.list_box.append(self._hero(cfg))
         if not self.snaps and rescue:
-            self.list_box.append(Adw.StatusPage(icon_name="camera-photo-symbolic", title=_('Keine Snapshots gefunden'),
-                                                description=_('In dieser Sicherung liegen keine Snapshots.')))
+            sp = Adw.StatusPage(icon_name="camera-photo-symbolic", title=_('Keine Snapshots gefunden'),
+                                description=_('In dieser Sicherung liegen keine Snapshots.'))
+            sp.set_child(Gtk.Button(label=_('Rechner jetzt sichern'), halign=Gtk.Align.CENTER,
+                                    css_classes=["pill", "suggested-action"], action_name="win.offline"))
+            self.list_box.append(sp)
         elif not self.snaps:
             sp = Adw.StatusPage(icon_name="camera-photo-symbolic", title=_('Noch keine Snapshots'),
                                 description=_('Erstelle jetzt den ersten Snapshot. Er überträgt das komplette System – das dauert einmalig etwas länger, danach nur noch Änderungen.'))
@@ -707,7 +718,7 @@ class MainWindow(Adw.ApplicationWindow):
         mid.append(Gtk.Label(label=info, xalign=0, css_classes=["dim-label"]))
         chips = Gtk.Box(spacing=6, margin_top=6)
         if cfg.get("rescue_mode"):
-            chips.append(pill(_('Rettungssystem · nur Wiederherstellung'), "warning"))
+            chips.append(pill(_('Rettungssystem · Rechner sichern und wiederherstellen'), "warning"))
             chips.append(pill(_('Rechner: {0}').format(cfg['machine_name']), "neutral"))
             mid.append(chips)
             card.append(mid)
@@ -812,6 +823,12 @@ class MainWindow(Adw.ApplicationWindow):
         d.connect("response", resp)
         d.present(self)
         entry.grab_focus()
+
+    def offline(self):
+        if self.busy():
+            self.toast(_('Es läuft bereits ein Vorgang'))
+            return
+        OfflineDialog(self).present(self)
 
     def delete(self, s):
         if not s:
@@ -1009,7 +1026,54 @@ def pick_folder(parent, title, cb, initial=None):
     fd.select_folder(parent.get_root() if hasattr(parent, "get_root") else parent, None, done)
 
 
-class RestoreDialog:
+class DeviceDialog:
+    """Gemeinsames für Dialoge mit Laufwerksauswahl (self.d, self.win, self.target, self.toasts)."""
+
+    def on_device(self, path):
+        pass
+
+    def ask_unlock(self, dev, retry=False, then=None):
+        d = Adw.AlertDialog(heading=_('Verschlüsselte Partition entsperren'),
+                            body=((_('Das Passwort war falsch. ') if retry else "")
+                                  + _('{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner beim Starten entsperrst.').format(dev=dev)))
+        pw = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
+        d.set_extra_child(pw)
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("unlock", _('Entsperren'))
+        d.set_response_appearance("unlock", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("unlock")
+        d.set_close_response("cancel")
+
+        def resp(_d, r):
+            if r != "unlock" or not pw.get_text():
+                return
+            self.target.set_text(dev)
+            self.target.set_sensitive(False)
+            self.toasts.add_toast(Adw.Toast(title=_('Entsperre…'), timeout=2))
+
+            def done(rc, lines):
+                self.target.set_sensitive(True)
+                path = lines[-1].strip() if lines else ""
+                if rc == 0 and path.startswith("/dev/"):
+                    self.target.set_text(path)
+                    self.on_device(path)
+                    if path.startswith("/dev/mapper/netshift-"):
+                        self.win.unlocked.append(path)
+                    self.toasts.add_toast(Adw.Toast(title=_('Entsperrt – Ziel ist jetzt {path}').format(path=path), timeout=4))
+                    if then:
+                        then()
+                elif rc == 3:          # falsches Passwort
+                    self.ask_unlock(dev, retry=True, then=then)
+                else:
+                    self.toasts.add_toast(Adw.Toast(title=Job.error_of(lines)[:150], timeout=6))
+            Job(["unlock", dev, "--stdin"], None, done, input=pw.get_text())
+        d.connect("response", resp)
+        d.present(self.d)
+        pw.grab_focus()
+
+
+
+class RestoreDialog(DeviceDialog):
     def __init__(self, win, snap):
         self.win, self.snap = win, snap
         self.d, page, foot, self.toasts = dialog_shell(_('System wiederherstellen'), 600, 680)
@@ -1107,44 +1171,6 @@ class RestoreDialog:
         else:
             self.target.set_text(d["path"])
 
-    def ask_unlock(self, dev, retry=False, then=None):
-        d = Adw.AlertDialog(heading=_('Verschlüsselte Partition entsperren'),
-                            body=((_('Das Passwort war falsch. ') if retry else "")
-                                  + _('{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner beim Starten entsperrst.').format(dev=dev)))
-        pw = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
-        d.set_extra_child(pw)
-        d.add_response("cancel", _('Abbrechen'))
-        d.add_response("unlock", _('Entsperren'))
-        d.set_response_appearance("unlock", Adw.ResponseAppearance.SUGGESTED)
-        d.set_default_response("unlock")
-        d.set_close_response("cancel")
-
-        def resp(_d, r):
-            if r != "unlock" or not pw.get_text():
-                return
-            self.target.set_text(dev)
-            self.target.set_sensitive(False)
-            self.toasts.add_toast(Adw.Toast(title=_('Entsperre…'), timeout=2))
-
-            def done(rc, lines):
-                self.target.set_sensitive(True)
-                path = lines[-1].strip() if lines else ""
-                if rc == 0 and path.startswith("/dev/"):
-                    self.target.set_text(path)
-                    if path.startswith("/dev/mapper/netshift-"):
-                        self.win.unlocked.append(path)
-                    self.toasts.add_toast(Adw.Toast(title=_('Entsperrt – Ziel ist jetzt {path}').format(path=path), timeout=4))
-                    if then:
-                        then()
-                elif rc == 3:          # falsches Passwort
-                    self.ask_unlock(dev, retry=True, then=then)
-                else:
-                    self.toasts.add_toast(Adw.Toast(title=Job.error_of(lines)[:150], timeout=6))
-            Job(["unlock", dev, "--stdin"], None, done, input=pw.get_text())
-        d.connect("response", resp)
-        d.present(self.d)
-        pw.grab_focus()
-
     def args(self, then=None):
         if self.live():
             t = "/"
@@ -1223,6 +1249,147 @@ class RestoreDialog:
             self.win.run_op(_('System wird wiederhergestellt'), args, done, cancellable=False)
         d.connect("response", resp)
         d.present(self.d)
+
+
+class OfflineDialog(DeviceDialog):
+    """Ein nicht laufendes System sichern – z.B. die Festplatte des Rechners vom USB-Stick aus."""
+
+    def __init__(self, win):
+        self.win = win
+        self.cfg = ns.load_config()
+        self.found = None
+        self.d, page, foot, self.toasts = dialog_shell(_('Rechner sichern'), 580, 600)
+        g0 = Adw.PreferencesGroup(description=_('Der Rechner läuft dabei nicht – so entsteht ein besonders sauberer Snapshot. Er landet in derselben Sicherung wie die Snapshots, die der Rechner selbst erstellt.'))
+        page.add(g0)
+        g1 = Adw.PreferencesGroup(title=_('Welches System?'))
+        self.target = Adw.EntryRow(title=_('Systempartition des Rechners (z.B. /dev/nvme0n1p2)'))
+        self.target.add_suffix(device_menu_button(self.pick_device))
+        self.target.connect("apply", lambda *_x: self.identify())
+        self.target.set_show_apply_button(True)
+        g1.add(self.target)
+        self.found_row = Adw.ActionRow(title=_('Laufwerk über das Symbol rechts auswählen'), subtitle="")
+        self.found_icon = Gtk.Image(icon_name="drive-harddisk-symbolic", css_classes=["dim-label"])
+        self.found_row.add_prefix(self.found_icon)
+        g1.add(self.found_row)
+        self.import_row = Adw.ActionRow(title=_('Sicherungsziel von dieser Festplatte übernehmen'), visible=False)
+        bimp = Gtk.Button(label=_('Übernehmen'), valign=Gtk.Align.CENTER, css_classes=["pill"])
+        bimp.connect("clicked", lambda *_x: self.import_config())
+        self.import_row.add_suffix(bimp)
+        g1.add(self.import_row)
+        page.add(g1)
+        g2 = Adw.PreferencesGroup(title=_('Kommentar'))
+        self.comment = Adw.EntryRow(title=_('Kommentar (optional)'))
+        g2.add(self.comment)
+        page.add(g2)
+        g3 = Adw.PreferencesGroup(visible=False)
+        self.wlan_row = Adw.ActionRow(title=_('Verbindung über WLAN'),
+                                      subtitle=_('Mit LAN-Kabel geht es schneller und zuverlässiger.'))
+        self.wlan_row.add_prefix(Gtk.Image(icon_name="network-wireless-symbolic", css_classes=["warning"]))
+        g3.add(self.wlan_row)
+        page.add(g3)
+        GLib.idle_add(lambda: g3.set_visible(self.win.wireless()) and False)
+        self.bgo = Gtk.Button(label=_('Sichern'), css_classes=["pill", "suggested-action"], sensitive=False)
+        self.bgo.connect("clicked", lambda *_x: self.go())
+        foot.append(self.bgo)
+
+    def present(self, parent):
+        self.d.present(parent)
+
+    def pick_device(self, d):
+        if d.get("locked"):
+            self.ask_unlock(d["path"])
+        else:
+            self.target.set_text(d["path"])
+            self.identify()
+
+    def on_device(self, path):
+        self.identify()
+
+    def identify(self):
+        dev = self.target.get_text().strip()
+        if not dev:
+            return
+        if dev.startswith(("/dev/", "UUID=")) and ns.is_luks(dev) and not ns.luks_children(dev):
+            self.ask_unlock(dev)
+            return
+        self.found = None
+        self.bgo.set_sensitive(False)
+        self.found_row.set_title(_('Prüfe {0}…').format(dev))
+        self.found_row.set_subtitle("")
+        self.import_row.set_visible(False)
+
+        def done(rc, lines):
+            try:
+                res = json.loads(lines[-1])
+            except (ValueError, IndexError):
+                res = {}
+            if res.get("linux") and res.get("name"):
+                self.found = res
+                self.found_icon.set_from_icon_name("emblem-ok-symbolic")
+                self.found_icon.set_css_classes(["success"])
+                self.found_row.set_title(GLib.markup_escape_text(_('{os} · Rechner „{host}“').format(
+                    os=res.get("os") or "Linux", host=res.get("host") or res["name"])))
+                sub = _('Wird gesichert als „{0}“').format(res["name"])
+                if res["name"] != self.cfg.get("machine_name") and self.cfg.get("rescue_mode"):
+                    sub += _(' – danach zeigt netshift die Snapshots dieses Rechners')
+                self.found_row.set_subtitle(GLib.markup_escape_text(sub))
+                nsinfo = res.get("netshift")
+                if nsinfo and not nsinfo.get("same_target"):
+                    self.import_row.set_subtitle(GLib.markup_escape_text(nsinfo["target"]))
+                    self.import_row.set_visible(True)
+                self.bgo.set_sensitive(True)
+            else:
+                self.found_icon.set_from_icon_name("dialog-warning-symbolic")
+                self.found_icon.set_css_classes(["warning"])
+                self.found_row.set_title(_('Kein Linux-System gefunden'))
+                self.found_row.set_subtitle(_('Bitte die Systempartition des Rechners wählen (die mit /etc).'))
+        Job(["identify", dev], None, done)
+
+    def import_config(self):
+        dev = self.target.get_text().strip()
+
+        def done(rc, lines):
+            if rc == 0:
+                self.cfg = ns.load_config()
+                self.import_row.set_visible(False)
+                self.toasts.add_toast(Adw.Toast(title=_('Sicherungsziel übernommen'), timeout=3))
+                self.win.refresh(quiet=True)
+                self.identify()
+            else:
+                self.toasts.add_toast(Adw.Toast(title=Job.error_of(lines)[:150], timeout=6))
+        Job(["import-config", dev, "--yes"], None, done)
+
+    def go(self):
+        dev = self.target.get_text().strip()
+        if not self.found:
+            return
+        args = ["create", "--source", dev]
+        if self.comment.get_text().strip():
+            args += ["-c", self.comment.get_text().strip()]
+        name = self.found["name"]
+        self.d.close()
+
+        def done(rc, lines):
+            if rc != 0:
+                return
+            cfg = ns.load_config()
+            if name != cfg.get("machine_name") and cfg.get("rescue_mode"):
+                # Rettungssystem: ab jetzt diesen Rechner anzeigen
+                cfg["machine_name"] = name
+                def again(*_x):
+                    if self.win.list_job or self.win.busy():
+                        GLib.timeout_add(300, again)
+                    else:
+                        self.win.snaps = []
+                        self.win.refresh()
+                    return False
+                Job(["config", "--set-json"], None, again, input=json.dumps(cfg))
+                self.win.toast(_('Snapshot von „{0}“ erstellt').format(name), 6)
+            elif name != cfg.get("machine_name"):
+                self.win.toast(_('Snapshot von „{0}“ erstellt').format(name), 6)
+            else:
+                self.win.toast(_('Snapshot erstellt'))
+        self.win.run_op(_('Rechner wird gesichert'), args, done)
 
 
 class PreviewDialog:
@@ -1654,8 +1821,8 @@ class SettingsDialog:
         g = Adw.PreferencesGroup(title=_('Dieser Rechner'))
         self.e_name = Adw.EntryRow(title=_('Name im Backup'), text=self.cfg["machine_name"])
         g.add(self.e_name)
-        self.sw_rescue = Adw.SwitchRow(title=_('Rettungssystem – nur wiederherstellen'),
-                                       subtitle=_('Für den USB-Stick: Hier wird nie gesichert. Die Snapshots des Rechners werden nur gelesen und auf seine Festplatte zurückgespielt.'),
+        self.sw_rescue = Adw.SwitchRow(title=_('Rettungssystem (USB-Stick)'),
+                                       subtitle=_('Für den USB-Stick: Das Stick-System selbst wird nie gesichert. Gesichert und wiederhergestellt wird die Festplatte des Rechners – während er nicht läuft.'),
                                        active=bool(self.cfg.get("rescue_mode")))
         g.add(self.sw_rescue)
         self.name_hint = Gtk.Label(wrap=True, xalign=0, css_classes=["dim-label", "caption"], margin_top=6,

@@ -209,9 +209,9 @@ case "$GUI" in
     *)      printf "  %s ${B}sudo netshift setup${N}\n" "$(L "Starten im Terminal:" "Start in the terminal:")" ;;
 esac
 if [ -f /etc/netshift/config.json ] && grep -q '"rescue_mode": true' /etc/netshift/config.json 2>/dev/null; then
-    printf "  %s\n" "$(L "Dieses System ist als Rettungssystem eingerichtet (nur Wiederherstellung)." "This system is set up as a rescue system (restore only).")"
+    printf "  %s\n" "$(L "Dieses System ist als Rettungssystem eingerichtet." "This system is set up as a rescue system.")"
 elif [ ! -f /etc/netshift/config.json ]; then
-    printf "  %s\n" "$(L "Für einen Rettungs-Stick: in den Einstellungen „Rettungssystem – nur wiederherstellen“ einschalten." "For a rescue stick: enable “Rescue system – restore only” in the settings.")"
+    printf "  %s\n" "$(L "Für einen Rettungs-Stick: in den Einstellungen „Rettungssystem (USB-Stick)“ einschalten." "For a rescue stick: enable “Rescue system (USB stick)” in the settings.")"
 fi
 exit 0
 __NETSHIFT_PAYLOAD__

@@ -147,7 +147,7 @@ class App(tk.Tk):
         self.busy = busy
         rescue = bool(ns.load_config().get("rescue_mode"))
         for i, b in enumerate(self.buttons):
-            b.configure(state="disabled" if busy or (i == 0 and rescue) else "normal")
+            b.configure(state="disabled" if busy else "normal")
         self.configure(cursor="watch" if busy else "")
         if busy:
             self.progress.configure(mode="indeterminate")
@@ -267,7 +267,8 @@ class App(tk.Tk):
                 return
             self.listing = data
             self.snaps = data["snapshots"]
-            self.buttons[0].configure(state="disabled" if ns.load_config().get("rescue_mode") else "normal")
+            rescue = bool(ns.load_config().get("rescue_mode"))
+            self.buttons[0].configure(text=_('💽 Rechner sichern') if rescue else _('➕ Erstellen'))
             self.tree.delete(*self.tree.get_children())
             for s in reversed(self.snaps):
                 tags = ", ".join(ns.TAG_NAMES.get(t, t) for t in s["tags"]) or "–"
@@ -292,6 +293,9 @@ class App(tk.Tk):
         self.run_cli(["list", "--json"], done, msg=_('Lade Snapshots…'), log=False, capture=True)
 
     def create(self):
+        if ns.load_config().get("rescue_mode"):
+            OfflineDialog(self)
+            return
         c = simpledialog.askstring(_('Snapshot erstellen'), _('Kommentar (optional):'), parent=self)
         if c is None:
             return
@@ -408,6 +412,90 @@ def open_as_user(path):
 
 
 # ---------------------------------------------------------------------- Dialoge
+
+def unlock_if_needed(win, app, v):
+    """Verschlüsselte Partition entsperren (fragt nach dem Passwort). Liefert den nutzbaren Pfad oder None."""
+    if not (v.startswith(("/dev/", "UUID=")) and ns.is_luks(v)):
+        return v
+    kids = ns.luks_children(v)
+    if kids:
+        return kids[0]
+    while True:
+        pw = simpledialog.askstring(_('Verschlüsselte Partition'),
+                                    _('{v} ist verschlüsselt.\nPasswort zum Entsperren (wie beim Starten des Rechners):').format(v=v), show="•", parent=win)
+        if not pw:
+            return None
+        p = subprocess.run([sys.executable, CORE, "unlock", v, "--stdin"], input=pw, capture_output=True, text=True)
+        if p.returncode == 0:
+            path = p.stdout.strip().splitlines()[-1]
+            app.unlocked.append(path)
+            return path
+        if p.returncode != 3:      # 3 = falsches Passwort
+            messagebox.showerror(_('Entsperren fehlgeschlagen'), p.stdout + p.stderr, parent=win)
+            return None
+        messagebox.showwarning(_('Falsches Passwort'), _('Das Passwort war falsch.'), parent=win)
+
+
+class OfflineDialog(tk.Toplevel):
+    """Festplatte des Rechners sichern, während er nicht läuft (Rettungssystem)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title(_('Rechner sichern'))
+        self.transient(app)
+        f = ttk.Frame(self, padding=14)
+        f.pack(fill="both", expand=True)
+        ttk.Label(f, text=_('Der Rechner läuft dabei nicht – so entsteht ein besonders sauberer Snapshot. Er landet in derselben Sicherung wie die Snapshots, die der Rechner selbst erstellt.'),
+                  wraplength=520, justify="left").pack(anchor="w", pady=(0, 10))
+        ttk.Label(f, text=_('Systempartition des Rechners (z.B. /dev/nvme0n1p2)')).pack(anchor="w")
+        self.devs = lsblk_parts()
+        self.target = tk.StringVar()
+        ttk.Combobox(f, textvariable=self.target, width=70,
+                     values=[dev_label(d) for d in self.devs if d.get("mountpoint") != "/"]).pack(fill="x", pady=(2, 10))
+        ttk.Label(f, text=_('Kommentar (optional):')).pack(anchor="w")
+        self.comment = tk.StringVar()
+        ttk.Entry(f, textvariable=self.comment).pack(fill="x", pady=(2, 12))
+        bf = ttk.Frame(f)
+        bf.pack(fill="x")
+        ttk.Button(bf, text=_('Abbrechen'), command=self.destroy).pack(side="right")
+        ttk.Button(bf, text=_('Sichern'), command=self.go).pack(side="right", padx=6)
+
+    def go(self):
+        v = self.target.get().strip().split(" ")[0] if self.target.get().strip() else ""
+        if not v:
+            messagebox.showwarning(_('Ziel fehlt'), _('Bitte Laufwerk oder Verzeichnis angeben.'), parent=self)
+            return
+        v = unlock_if_needed(self, self.app, v)
+        if not v:
+            return
+        p = subprocess.run([sys.executable, CORE, "identify", v], capture_output=True, text=True)
+        try:
+            res = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            res = {}
+        if not (res.get("linux") and res.get("name")):
+            messagebox.showwarning(_('Kein Linux-System gefunden'),
+                                   _('Bitte die Systempartition des Rechners wählen (die mit /etc).'), parent=self)
+            return
+        name = res["name"]
+        if not messagebox.askokcancel(_('Rechner sichern'), _('{os} · Rechner „{host}“').format(
+                os=res.get("os") or "Linux", host=res.get("host") or name) + "\n\n"
+                + _('Wird gesichert als „{0}“').format(name), parent=self):
+            return
+        args = ["create", "--source", v] + (["-c", self.comment.get().strip()] if self.comment.get().strip() else [])
+        self.destroy()
+        app = self.app
+
+        def done(rc, lines):
+            cfg = ns.load_config()
+            if rc == 0 and cfg.get("rescue_mode") and name != cfg.get("machine_name"):
+                cfg["machine_name"] = name           # Rettungssystem: ab jetzt diesen Rechner anzeigen
+                subprocess.run([sys.executable, CORE, "config", "--set-json"], input=json.dumps(cfg),
+                               capture_output=True, text=True)
+            app.refresh()
+        app.run_cli(args, done, msg=_('Rechner wird gesichert'))
+
 
 class RestoreDialog(tk.Toplevel):
     def __init__(self, app, snap):
@@ -722,7 +810,7 @@ class SettingsDialog(tk.Toplevel):
         f.columnconfigure(1, weight=1)
         self.entry(f, "machine_name", _('Name dieses Rechners:'), self.cfg["machine_name"], 0)
         self.v["rescue"] = tk.BooleanVar(value=bool(self.cfg.get("rescue_mode")))
-        ttk.Checkbutton(f, text=_('Rettungssystem – nur wiederherstellen (USB-Stick: hier wird nie gesichert; Name muss wie beim Rechner lauten)'), variable=self.v["rescue"]
+        ttk.Checkbutton(f, text=_('Rettungssystem (USB-Stick: das Stick-System selbst wird nie gesichert; Name muss wie beim Rechner lauten)'), variable=self.v["rescue"]
                         ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(10, 0))
         ttk.Label(f, text=_('Zieltyp:')).grid(row=1, column=0, sticky="w")
         self.type_cb = ttk.Combobox(f, state="readonly", values=[l for _x, l in TYPE_LABELS], width=38)

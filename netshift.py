@@ -112,7 +112,8 @@ RUN_DIR = os.environ.get("NETSHIFT_RUNDIR", "/run/netshift")
 STATE_DIR = os.environ.get("NETSHIFT_STATEDIR", "/var/lib/netshift")
 NET_TIMEOUT = int(os.environ.get("NETSHIFT_NET_TIMEOUT", "45"))   # Sekunden ohne Verbindung → Abbruch
 NET_PROBE = None          # (host, port) des Netzwerkziels, gesetzt beim Öffnen des Ziels
-SOURCE = os.environ.get("NETSHIFT_SOURCE", "/")  # nur für Tests ändern
+SOURCE = os.environ.get("NETSHIFT_SOURCE", "/")  # Wurzel des gesicherten Systems ("/" = laufendes System)
+SOURCE_HOST = None        # Rechnername des gesicherten Systems, wenn es nicht das laufende ist
 GUI_MODE = os.environ.get("NETSHIFT_GUI") == "1"
 TIME_FMT = "%Y-%m-%d_%H-%M-%S"
 INPROGRESS = ".in-progress"
@@ -184,7 +185,7 @@ DEFAULT_CONFIG = {
         "weekly": {"enabled": True, "keep": 4},
         "monthly": {"enabled": False, "keep": 3},
     },
-    "rescue_mode": False,            # Rettungssystem (USB-Stick): nur wiederherstellen
+    "rescue_mode": False,            # Rettungssystem (USB-Stick): sichert nie sich selbst
     "notify": {"enabled": True, "overdue_days": 3},
     "auto_cleanup": True,            # bei Platzmangel älteste automatische Snapshots löschen
     "pacman_hook": {"enabled": False, "keep": 5, "min_interval_minutes": 30,
@@ -255,6 +256,8 @@ def need(prog, pkg=None):
 
 
 def hostname():
+    if SOURCE_HOST:
+        return SOURCE_HOST
     return socket.gethostname().split(".")[0] or "linux"
 
 
@@ -1047,6 +1050,8 @@ def snapshots(storage):
         inf.setdefault("comment", "")
         if inf["comment"] in ("Geplant", "Scheduled"):       # automatischer Kommentar → in der aktuellen Sprache
             inf["comment"] = _("Geplant")
+        elif inf["comment"] in ("Offline-Sicherung", "Offline backup"):
+            inf["comment"] = _("Offline-Sicherung")
         if "epoch" not in inf:
             try:
                 inf["epoch"] = dt.datetime.strptime(name, TIME_FMT).timestamp()
@@ -1212,7 +1217,18 @@ def system_info():
                     pretty = line.split("=", 1)[1].strip().strip('"')
     except OSError:
         pass
-    return {"os": pretty, "kernel": os.uname().release, "host": hostname()}
+    kernel = os.uname().release
+    if SOURCE != "/":
+        mods = os.path.join(SOURCE, "usr/lib/modules")
+        try:
+            cand = [d for d in os.listdir(mods) if os.path.isdir(os.path.join(mods, d, "kernel"))]
+            if cand:
+                kernel = max(cand, key=lambda d: os.path.getmtime(os.path.join(mods, d)))
+            else:
+                kernel = ""
+        except OSError:
+            kernel = ""
+    return {"os": pretty, "kernel": kernel, "host": hostname()}
 
 
 def foreign_host(storage):
@@ -1225,7 +1241,7 @@ def foreign_host(storage):
 
 def create_snapshot(cfg, target, storage, tags, comment=""):
     need("rsync")
-    if cfg.get("rescue_mode"):
+    if cfg.get("rescue_mode") and SOURCE == "/":
         die(_('Rettungssystem: Auf diesem System werden keine Snapshots erstellt – sonst würde ein Abbild des Rettungssystems zwischen den Sicherungen des eigentlichen Rechners landen.'))
     other = foreign_host(storage)
     if other and not cfg.get("_allow_other_host"):
@@ -1286,6 +1302,8 @@ def create_snapshot(cfg, target, storage, tags, comment=""):
         "netshift_version": VERSION,
         **system_info(),
     }
+    if SOURCE != "/":
+        inf["offline"] = True           # vom Live-/Rettungssystem aus gesichert (System lief nicht)
     storage.write_info(INPROGRESS, inf)
     storage.rename(INPROGRESS, name)
     info(_('Snapshot {name} erfolgreich erstellt ({0} s).').format(inf['duration_s'], name=name))
@@ -1514,6 +1532,113 @@ def mount_restore_target(dev, readonly=False):
     return mp
 
 
+SKIP_FSTAB_TYPES = {"swap", "none", "auto"} | NETWORK_FS | VOLATILE_FS
+
+
+def read_fstab(root):
+    """Einträge aus <root>/etc/fstab: [(quelle, mountpunkt, typ, optionen)]"""
+    out = []
+    try:
+        with open(os.path.join(root, "etc/fstab"), encoding="utf-8", errors="replace") as f:
+            for line in f:
+                parts = line.split("#", 1)[0].split()
+                if len(parts) >= 3:
+                    opts = parts[3].split(",") if len(parts) > 3 else []
+                    mp = parts[1].replace("\\040", " ")
+                    out.append((parts[0], mp, parts[2], opts))
+    except OSError:
+        pass
+    return out
+
+
+def source_identity(root):
+    """(Name im Backup, Rechnername) des Systems unter root."""
+    host = ""
+    try:
+        with open(os.path.join(root, "etc/hostname"), encoding="utf-8") as f:
+            host = f.read().strip().split(".")[0]
+    except OSError:
+        pass
+    name = ""
+    try:
+        with open(os.path.join(root, "etc/netshift/config.json"), encoding="utf-8") as f:
+            name = (json.load(f) or {}).get("machine_name", "")
+    except (OSError, ValueError):
+        pass
+    return (name or host), (host or name)
+
+
+def mount_source(dev, cfg):
+    """Systempartition eines anderen Rechners nur lesend einbinden – samt der übrigen lokalen
+    Dateisysteme aus dessen fstab (Btrfs-Subvolumes, /boot, /boot/efi …), damit der Snapshot
+    genauso vollständig ist wie einer aus dem laufenden System. Liefert (wurzel, [mountpunkte])."""
+    p = run(["findmnt", "-rn", "-o", "TARGET", "--source", dev], check=False, capture=True, quiet=True)
+    if "/" in (p.stdout or "").split():
+        die(_('{dev} ist das gerade laufende System. Zum Sichern des laufenden Systems einfach ohne --source sichern.').format(dev=dev))
+    mp = os.path.join(RUN_DIR, "source")
+    os.makedirs(mp, mode=0o755, exist_ok=True)
+    if os.path.ismount(mp):
+        run(["umount", "-R", mp], check=False, capture=True)
+    run(["mount", "-o", "ro", dev, mp])
+    mounted = [mp]
+    try:
+        if fs_type_of(mp) == "btrfs" and os.path.isdir(os.path.join(mp, "@")) \
+                and not os.path.isdir(os.path.join(mp, "etc")):
+            _umount(mp)
+            run(["mount", "-o", "ro,subvol=@", dev, mp])
+            info(_("Btrfs erkannt – Subvolume '@' als Wurzel eingebunden."))
+        if not os.path.isdir(os.path.join(mp, "etc")):
+            die(_('Auf {dev} liegt kein Linux-System (kein /etc). Bitte die Systempartition des Rechners wählen.').format(dev=dev))
+        mounted += mount_fstab_parts(mp, cfg, readonly=True)
+    except BaseException:
+        unmount_source(mounted)
+        raise
+    return mp, mounted
+
+
+def mount_fstab_parts(mp, cfg, readonly=True, skip=()):
+    """Weitere lokale Dateisysteme aus <mp>/etc/fstab unterhalb von mp einbinden
+    (Btrfs-Subvolumes wie @log/@cache, getrennte /boot-Partition …)."""
+    mounted = []
+    home = bool(cfg.get("include_home"))
+    entries = sorted(read_fstab(mp), key=lambda e: e[1].rstrip("/").count("/"))
+    try:
+        for spec, where, fstype, opts in entries:
+            where = "/" + where.strip("/")
+            if where == "/" or fstype in SKIP_FSTAB_TYPES or fstype.startswith("fuse") \
+                    or "bind" in opts or "rbind" in opts or where in skip:
+                continue
+            if where.startswith(("/mnt", "/media", "/run", "/tmp", "/proc", "/sys", "/dev", "/swap")) \
+                    or (not home and where.startswith(("/home", "/root"))):
+                continue
+            keep = [o for o in opts if o.startswith(("subvol=", "subvolid="))]
+            src = real_device(spec)
+            point = os.path.join(mp, where.lstrip("/"))
+            ok = os.path.exists(src) and os.path.isdir(point)
+            if ok:
+                r = run(["mount", "-o", ",".join((["ro"] if readonly else []) + keep) or "defaults", src, point],
+                        check=False, capture=True, quiet=True)
+                ok = r.returncode == 0
+            if ok:
+                mounted.append(point)
+                info(_('Eingebunden: {where} ({spec})').format(where=where, spec=spec))
+            elif "nofail" in opts or "noauto" in opts:
+                warn(_('{where} ({spec}) konnte nicht eingebunden werden und wird ausgelassen.').format(where=where, spec=spec))
+            else:
+                die(_('{where} ({spec}) aus der fstab des Rechners konnte nicht eingebunden werden. Ohne diesen Teil wäre das System unvollständig – abgebrochen. Ist die Partition verschlüsselt, bitte zuerst entsperren.').format(where=where, spec=spec))
+    except BaseException:
+        unmount_source(mounted)
+        raise
+    return mounted
+
+
+def unmount_source(mounted):
+    for m in reversed(mounted):
+        if os.path.ismount(m):
+            if run(["umount", m], check=False, capture=True, quiet=True).returncode != 0:
+                run(["umount", "-l", m], check=False, capture=True, quiet=True)
+
+
 def restore(cfg, target, storage, snap, dest="/", dry_run=False, keep_fstab=False, delete=True):
     need("rsync")
     live = os.path.realpath(dest) == "/"
@@ -1602,6 +1727,8 @@ def confirm(prompt, args, strong=False):
 
 
 def cmd_create(cfg, args):
+    if getattr(args, "source", None):
+        return cmd_create_offline(cfg, args)
     tags = list(args.tags.upper()) if args.tags else ["O"]
     if args.allow_other_host:
         cfg["_allow_other_host"] = True
@@ -1620,6 +1747,153 @@ def cmd_create(cfg, args):
     finally:
         notify_health(cfg, st)      # ggf. Entwarnung
         save_status(st)
+
+
+def cmd_create_offline(cfg, args):
+    """Ein anderes (nicht laufendes) System sichern, z.B. vom Live-USB-Stick aus."""
+    global SOURCE, SOURCE_HOST
+    src, mounted = args.source, []
+    if os.path.isdir(src) and not src.startswith("/dev/"):
+        root = os.path.realpath(src)
+        if root == "/":
+            die(_('Zum Sichern des laufenden Systems einfach ohne --source sichern.'))
+        if not os.path.isdir(os.path.join(root, "etc")):
+            die(_('In {0} liegt kein Linux-System (kein /etc).').format(root))
+    else:
+        dev = resolve_restore_device(src)
+        root, mounted = mount_source(dev, cfg)
+    try:
+        name, host = source_identity(root)
+        name = args.name or name
+        if not name:
+            die(_('Der Rechnername ließ sich nicht ermitteln (keine /etc/hostname). Bitte mit --name angeben.'))
+        cfg["machine_name"] = name
+        SOURCE, SOURCE_HOST = root, host or name
+        if args.allow_other_host:
+            cfg["_allow_other_host"] = True
+        step(_('Sichere das System auf {0} (Rechner: {1}, Name im Backup: {2})').format(src, SOURCE_HOST, name))
+        st_ = {}
+        with Session(cfg) as s:
+            create_snapshot(cfg, s.target, s.storage, list(args.tags.upper()) if args.tags else ["O"],
+                            args.comment or "Offline-Sicherung")
+            if args.prune:
+                prune(cfg, s.storage)
+            sync_status(s.storage, st_)
+    finally:
+        SOURCE, SOURCE_HOST = "/", None
+        unmount_source(mounted)
+
+
+def cmd_identify(cfg, args):
+    """Welches System liegt auf dieser Partition? (für die Oberfläche; bindet nur lesend ein)"""
+    src, mounted = args.source, []
+    res = {"source": src, "linux": False}
+    try:
+        if os.path.isdir(src) and not src.startswith("/dev/"):
+            root = os.path.realpath(src)
+        else:
+            dev = real_device(src)
+            if is_luks(dev):
+                kids = luks_children(dev)
+                if not kids:
+                    res["locked"] = True
+                    print(json.dumps(res), flush=True)
+                    return
+                dev = kids[0]
+            mp = os.path.join(RUN_DIR, "identify")
+            os.makedirs(mp, mode=0o755, exist_ok=True)
+            if os.path.ismount(mp):
+                _umount(mp)
+            if run(["mount", "-o", "ro", dev, mp], check=False, capture=True, quiet=True).returncode != 0:
+                print(json.dumps(res), flush=True)
+                return
+            mounted = [mp]
+            if fs_type_of(mp) == "btrfs" and os.path.isdir(os.path.join(mp, "@")) \
+                    and not os.path.isdir(os.path.join(mp, "etc")):
+                _umount(mp)
+                mounted = []
+                if run(["mount", "-o", "ro,subvol=@", dev, mp], check=False, capture=True, quiet=True).returncode == 0:
+                    mounted = [mp]
+            root = mp
+        if mounted or os.path.isdir(root):
+            res["linux"] = os.path.isdir(os.path.join(root, "etc"))
+            if res["linux"]:
+                res["name"], res["host"] = source_identity(root)
+                try:
+                    with open(os.path.join(root, "etc/os-release")) as f:
+                        for line in f:
+                            if line.startswith("PRETTY_NAME="):
+                                res["os"] = line.split("=", 1)[1].strip().strip('"')
+                except OSError:
+                    pass
+                cp = os.path.join(root, "etc/netshift/config.json")
+                if os.path.exists(cp):
+                    try:
+                        with open(cp, encoding="utf-8") as f:
+                            c = deep_merge(DEFAULT_CONFIG, json.load(f))
+                        res["netshift"] = {"target": Target(c).describe(), "type": c["target"]["type"],
+                                           "same_target": c["target"] == cfg["target"]
+                                           or Target(c).describe() == Target(cfg).describe()}
+                    except (OSError, ValueError, KeyError):
+                        pass
+    finally:
+        unmount_source(mounted)
+    print(json.dumps(res), flush=True)
+
+
+def cmd_import_config(cfg, args):
+    """Einstellungen (Sicherungsziel, Zugangsdaten, Schlüssel) von der Festplatte eines Rechners übernehmen."""
+    src, mounted = args.source, []
+    if os.path.isdir(src) and not src.startswith("/dev/"):
+        root = os.path.realpath(src)
+    else:
+        dev = resolve_restore_device(src)
+        root, mounted = mount_source(dev, {"include_home": False})
+    try:
+        sdir = os.path.join(root, "etc/netshift")
+        spath = os.path.join(sdir, "config.json")
+        if not os.path.exists(spath):
+            die(_('Auf {0} ist netshift nicht eingerichtet (keine /etc/netshift/config.json).').format(src))
+        if os.path.realpath(sdir) == os.path.realpath(ETC_DIR):
+            die(_('Das ist bereits die Konfiguration dieses Systems.'))
+        with open(spath, encoding="utf-8") as f:
+            new = deep_merge(DEFAULT_CONFIG, json.load(f))
+        if not new.get("machine_name"):
+            new["machine_name"] = source_identity(root)[0]
+        new["rescue_mode"] = cfg.get("rescue_mode", False)        # Betriebsart dieses Systems bleibt
+        for k in ("pacman_hook", "schedule"):                       # dort gehört das nicht hin
+            if cfg.get("rescue_mode"):
+                new[k] = cfg[k]
+        if not args.yes and not GUI_MODE:
+            if not confirm(_('Einstellungen von {0} übernehmen (Ziel: {1})? Die bisherigen Einstellungen hier werden ersetzt.').format(src, Target(new).describe()), args):
+                info(_('Abgebrochen.'))
+                return
+        os.makedirs(ETC_DIR, mode=0o700, exist_ok=True)
+        copied = []
+        t = new["target"]
+        files = [("smb", os.path.join("/etc/netshift", "smb-credentials")), ("key_file", t.get("key_file")),
+                 ("ssh_key", t.get("ssh_key")), ("pub", (t.get("ssh_key") or "") + ".pub")]
+        for kind, fpath in files:
+            if not fpath or fpath == ".pub":
+                continue
+            if fpath.startswith(ETC_DIR.rstrip("/") + "/"):
+                fpath = "/etc/netshift/" + os.path.basename(fpath)
+            srcf = os.path.join(root, fpath.lstrip("/"))
+            if not os.path.isfile(srcf):
+                continue
+            dst = os.path.join(ETC_DIR, os.path.basename(fpath))
+            shutil.copy2(srcf, dst)
+            os.chmod(dst, 0o644 if dst.endswith(".pub") else 0o600)
+            copied.append(os.path.basename(dst))
+            if kind in ("key_file", "ssh_key"):
+                t[kind] = dst
+        save_config(new)
+        info(_('Einstellungen übernommen: Ziel {0}, Name im Backup {1}').format(Target(new).describe(), new["machine_name"])
+             + (" (" + ", ".join(copied) + ")" if copied else ""))
+        if GUI_MODE:
+            print("@@RESULT " + new["machine_name"], flush=True)
+    finally:
+        unmount_source(mounted)
 
 
 def fmt_snap_row(i, s):
@@ -1764,7 +2038,7 @@ def cmd_restore(cfg, args):
         die(_('Testmodus: --target angeben.'))
     dest = args.target or "/"
     live = os.path.realpath(dest) == "/" and not dest.startswith("/dev/")
-    restore_mp = None
+    restore_mp, restore_parts = None, []
     if live and cfg.get("rescue_mode"):
         die(_('Rettungssystem: Bitte als Ziel die Systempartition des Rechners wählen (z.B. /dev/nvme0n1p2), nicht das laufende System.'))
     with Session(cfg) as s:
@@ -1776,6 +2050,12 @@ def cmd_restore(cfg, args):
         if dest.startswith("/dev/") or re.match(r"^(UUID|LABEL)=", dest):
             dest = resolve_restore_device(dest)
             restore_mp = mount_restore_target(dest, readonly=args.dry_run)
+            try:
+                restore_parts = mount_fstab_parts(restore_mp, {"include_home": snap.get("include_home")},
+                                                  readonly=args.dry_run, skip=("/boot/efi", "/efi"))
+            except BaseException:
+                _umount(restore_mp)
+                raise
             dest_path = restore_mp
         else:
             dest_path = dest
@@ -1810,6 +2090,7 @@ def cmd_restore(cfg, args):
             info(_('Wiederherstellung abgeschlossen.'))
         finally:
             if restore_mp:
+                unmount_source(restore_parts)
                 _umount(restore_mp)
     if live:
         if args.reboot or (not GUI_MODE and sys.stdin.isatty() and not args.no_reboot
@@ -2000,7 +2281,7 @@ def cmd_status(cfg, args):
     info(_('Konfiguration: {CONFIG_PATH}').format(CONFIG_PATH=CONFIG_PATH))
     info(_('Ziel:          {0}  (Maschine: {1})').format(t.describe(), cfg['machine_name']))
     if cfg.get("rescue_mode"):
-        info(_('Modus:         RETTUNGSSYSTEM (nur wiederherstellen, keine Snapshots)'))
+        info(_('Modus:         RETTUNGSSYSTEM (sichert nur die Festplatte des Rechners, nie sich selbst)'))
     info(_('Home sichern:  {0}').format(_('ja') if cfg['include_home'] else _('nein')))
     sch = ", ".join(_("{0} (behalte {1})").format(k, v['keep']) for k, v in data["schedule"].items()) or _("aus")
     info(_('Zeitplan:      {sch}').format(sch=sch))
@@ -2192,6 +2473,15 @@ def build_parser():
     c.add_argument("--prune", action="store_true", help=_('danach Aufbewahrungsregeln anwenden'))
     c.add_argument("--allow-other-host", action="store_true",
                    help=_('auch erstellen, wenn die Sicherung von einem anders benannten Rechner stammt'))
+    c.add_argument("--source", metavar=_('GERÄT'),
+                   help=_('ein anderes, nicht laufendes System sichern (z.B. vom Live-USB): Systempartition wie /dev/nvme0n1p2, UUID=… oder Ordner'))
+    c.add_argument("--name", help=_('Name im Backup (Standard: wird vom gesicherten System gelesen)'))
+
+    idf = sp.add_parser("identify", help=_('(intern) System auf einer Partition erkennen'))
+    idf.add_argument("source")
+    ic = sp.add_parser("import-config", help=_('Einstellungen von der Festplatte eines Rechners übernehmen (z.B. im Live-System)'))
+    ic.add_argument("source", help=_('Systempartition (/dev/…, UUID=…) oder Ordner'))
+    ic.add_argument("-y", "--yes", action="store_true")
 
     l = sp.add_parser("list", help=_('Snapshots anzeigen'))
     l.add_argument("--json", action="store_true")
@@ -2284,7 +2574,7 @@ def main(argv=None):
         "pacman-hook": cmd_pacman_hook, "mount": cmd_mount, "umount": cmd_umount,
         "status": cmd_status, "test": cmd_test, "resize-image": cmd_resize_image,
         "schedule-apply": cmd_schedule_apply, "ssh-setup": cmd_ssh_setup,
-        "config": cmd_config, "setup": cmd_setup,
+        "config": cmd_config, "setup": cmd_setup, "import-config": cmd_import_config, "identify": cmd_identify,
     }
     if args.cmd == "diff":
         args.dry_run, args.no_pre_snapshot, args.update_grub = True, True, False
