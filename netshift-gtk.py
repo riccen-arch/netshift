@@ -2266,6 +2266,25 @@ LINUX_FS = {"ext4", "ext3", "ext2", "btrfs", "xfs", "f2fs", "jfs", "reiserfs"}
 SESSION_ENV = "/run/netshift-live/session.env"
 
 
+def live_wallpaper():
+    """Hintergrundbild des Live-Sticks (falls vorhanden)."""
+    for p in (os.environ.get("NETSHIFT_WALLPAPER", ""), "/usr/share/netshift/wallpaper.jpg",
+              "/usr/share/netshift/wallpaper.png"):
+        if p and os.path.isfile(p):
+            return p
+    return None
+
+
+WALLPAPER_CSS = """
+window.wallpaper { background: #0b1020 url("file://%s") center / cover no-repeat; }
+window.wallpaper headerbar { background: transparent; box-shadow: none; }
+window.wallpaper .boxed-list, window.wallpaper .card, window.wallpaper row.entry {
+  background-color: alpha(#1e1f26, 0.86); }
+window.wallpaper .card:hover { background-color: alpha(#2a2c36, 0.92); }
+window.wallpaper .live-title { text-shadow: 0 2px 12px alpha(black, 0.6); }
+"""
+
+
 def net_status():
     """(art, text) der aktuellen Netzwerkverbindung – über NetworkManager."""
     if not shutil.which("nmcli"):
@@ -2837,13 +2856,18 @@ class App(Adw.Application):
 
     def on_activate(self, *_x):
         sm = Adw.StyleManager.get_default()
-        sm.set_color_scheme({"dark": Adw.ColorScheme.FORCE_DARK, "light": Adw.ColorScheme.FORCE_LIGHT}
+        wall = live_wallpaper() if LIVE else None
+        sm.set_color_scheme(Adw.ColorScheme.FORCE_DARK if wall else
+                            {"dark": Adw.ColorScheme.FORCE_DARK, "light": Adw.ColorScheme.FORCE_LIGHT}
                             .get(COLOR_SCHEME, Adw.ColorScheme.DEFAULT))
         prov = Gtk.CssProvider()
-        prov.load_from_data(CSS.encode())
+        css = CSS + (WALLPAPER_CSS % wall.replace('"', '%22') if wall else "")
+        prov.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), prov,
                                                   Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         win = self.get_active_window() or MainWindow(self)
+        if wall:
+            win.add_css_class("wallpaper")
         win.present()
 
 
