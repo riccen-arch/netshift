@@ -22,7 +22,7 @@ System-Snapshots für Manjaro/Arch – wie Timeshift, aber auch auf **NAS (SMB),
 - **Alle Linux-Rechte bleiben erhalten**, auch auf dem NAS (ext4-Image-Container, optional mit LUKS2 verschlüsselt)
 - **Automatisch:** beim Start, stündlich, täglich, wöchentlich, monatlich und vor jedem pacman-/pamac-Update – verpasste Termine werden nachgeholt
 - **Wiederherstellen mit Vorschau:** erst sehen, was sich ändern würde; auch einzelne Dateien zurückholen
-- **Rettungs-Stick:** ein System, das nicht mehr startet, von einem Linux-USB-Boot-Stick zurückspielen – auch auf verschlüsselte Platten
+- **netshift Live:** startfähiger USB-Stick (wie Clonezilla), um einen Rechner zu sichern oder wiederherzustellen, während er nicht läuft – auch verschlüsselte Platten
 - **Sicher:** Sicherheits-Snapshot vor jeder Wiederherstellung, abgebrochene Sicherungen werden fortgesetzt, kein Hängen bei WLAN-Abbruch oder beim Herunterfahren
 - **Benachrichtigung**, wenn eine Sicherung fehlschlägt oder die letzte zu alt ist
 - Moderne GTK4-Oberfläche mit Dunkelmodus, klassische Oberfläche und Terminal als Rückfall
@@ -43,8 +43,9 @@ Aktualisieren: `cd netshift && git pull && sudo sh install.sh`
 2. **Einstellungen → Sicherungsziel:** z.B. SMB, Server `192.168.1.10`, Freigabe `backup`, Benutzer und Passwort → *Testen*
 3. **Snapshot erstellen** – fertig. Den Zeitplan unter *Einstellungen → Zeitplan* festlegen.
 
-**Tipp:** netshift auch auf einem Linux-USB-Boot-Stick installieren (Arch-basiert, z.B. Manjaro, EndeavourOS oder Arch)
-und *Rettungssystem – nur wiederherstellen* einschalten. Startet der Rechner nicht mehr, lässt sich das System vom Stick aus zurückspielen.
+**Tipp:** einen **netshift-Live**-USB-Stick bereithalten – die ISO unter
+[Releases](https://github.com/riccen-arch/netshift/releases/tag/live-iso) laden und mit Ventoy oder balenaEtcher aufspielen.
+Startet der Rechner nicht mehr, lässt er sich vom Stick aus wiederherstellen.
 
 ## Voraussetzungen
 

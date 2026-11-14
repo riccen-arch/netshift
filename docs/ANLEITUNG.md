@@ -124,7 +124,7 @@ git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh 
 ```
 (oder ohne Git wie oben unter „Installation“ beschrieben). Dann netshift öffnen → Einstellungen:
 - **Name im Backup:** genau wie beim Rechner, z.B. `meinrechner`
-- **Rettungssystem – nur wiederherstellen:** einschalten
+- **Rettungssystem (USB-Stick):** einschalten
 - Sicherungsziel wie am Rechner eintragen (Server, Freigabe, Benutzer, Passwort) → *Testen*
 
 Im Rettungssystem erstellt netshift nie Snapshots, Zeitplan und Update-Snapshots sind aus, und
@@ -150,6 +150,28 @@ Rechner starten.
 einem anderen Rechner, verweigert netshift das Erstellen von Snapshots und das Zurückspielen auf das
 laufende System – auch wenn der Rettungsmodus vergessen wurde.
 
+### netshift Live – eigener startfähiger USB-Stick
+
+Wie Clonezilla: Ein fertiges Live-System, das direkt mit netshift startet – nichts installieren,
+keine veraltete Paketliste. Damit lässt sich ein Rechner **sichern** (während er nicht läuft) und
+**wiederherstellen**. Es funktioniert auch für Rechner, auf denen netshift gar nicht installiert ist.
+
+1. `netshift-live-x86_64.iso` unter [Releases](https://github.com/riccen-arch/netshift/releases/tag/live-iso)
+   herunterladen.
+2. Mit **Ventoy**, **balenaEtcher** oder `dd` auf einen USB-Stick schreiben (der Stick wird dabei gelöscht).
+3. Den Rechner vom Stick starten (Boot-Menü, meist F12/F8/Esc). **Secure Boot** muss dafür im BIOS
+   ausgeschaltet sein.
+4. Sprache wählen → Netzwerk prüfen (LAN-Kabel wird erkannt, sonst *WLAN…*) → den Rechner in der
+   Liste auswählen (verschlüsselte Partitionen per *Entsperren…*) → **Rechner sichern** oder
+   **Wiederherstellen**.
+
+Ist netshift auf dem Rechner eingerichtet, übernimmt das Live-System Sicherungsziel, Zugangsdaten und
+Schlüssel automatisch von dessen Festplatte. Sonst fragt es einmal danach (die Angaben gelten nur bis
+zum Ausschalten). Offline-Snapshots landen in derselben Sicherung wie die des laufenden Systems.
+
+Auch ohne Live-Stick geht das: Im Rettungssystem (siehe oben) heißt der Knopf oben links
+**Rechner sichern**, im Terminal `sudo netshift create --source /dev/nvme0n1p2`.
+
 ### Einzelne Dateien
 **Dateien zurückholen** → Datei/Ordner im Snapshot wählen → an Originalort oder anderswohin.
 Terminal: `sudo netshift restore-files latest /etc/pacman.conf --to /tmp/alt`
@@ -160,6 +182,8 @@ Zum freien Stöbern: **Durchsuchen** (öffnet den Snapshot im Dateimanager).
 
 ```
 netshift create -c "vor Kernel-Update"   Snapshot erstellen
+netshift create --source /dev/…          Nicht laufendes System sichern (vom USB-Stick)
+netshift import-config /dev/…            Einstellungen von der Festplatte übernehmen
 netshift list                            Snapshots anzeigen
 netshift diff 3                          Was würde ein Restore von Nr. 3 ändern?
 netshift restore 3 [--target …]          Wiederherstellen

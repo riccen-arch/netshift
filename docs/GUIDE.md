@@ -126,7 +126,7 @@ git clone https://github.com/riccen-arch/netshift.git && cd netshift && sudo sh 
 ```
 (or without Git as described above under “Installation”). Then open netshift → Settings:
 - **Name in backup:** exactly as on the computer, e.g. `mycomputer`
-- **Rescue system – restore only:** switch on
+- **Rescue system (USB stick):** switch on
 - Enter the backup target as on the computer (server, share, user, password) → *Test*
 
 In the rescue system netshift never creates snapshots, schedule and update snapshots are off, and
@@ -152,6 +152,27 @@ start the computer.
 different computer, netshift refuses to create snapshots and to restore onto the running system –
 even if rescue mode was forgotten.
 
+### netshift Live – a bootable USB stick of its own
+
+Like Clonezilla: a ready-made live system that starts straight into netshift – nothing to install,
+no outdated package list. It can **back up** a computer (while it is not running) and **restore** it,
+even computers that do not have netshift installed.
+
+1. Download `netshift-live-x86_64.iso` from
+   [Releases](https://github.com/riccen-arch/netshift/releases/tag/live-iso).
+2. Write it to a USB stick with **Ventoy**, **balenaEtcher** or `dd` (this erases the stick).
+3. Boot the computer from the stick (boot menu, usually F12/F8/Esc). **Secure Boot** has to be
+   switched off in the BIOS for this.
+4. Choose the language → check the network (a LAN cable is detected, otherwise *Wi-Fi…*) → select
+   the computer in the list (encrypted partitions via *Unlock…*) → **Back up computer** or **Restore**.
+
+If netshift is set up on the computer, the live system takes over backup target, credentials and keys
+from its disk automatically. Otherwise it asks once (the details only last until shutdown). Offline
+snapshots end up in the same backup as those of the running system.
+
+Without the live stick: in the rescue system (see above) the button at the top left is called
+**Back up computer**; in the terminal `sudo netshift create --source /dev/nvme0n1p2`.
+
 ### Single files
 **Restore files…** → choose a file/folder in the snapshot → to the original location or elsewhere.
 Terminal: `sudo netshift restore-files latest /etc/pacman.conf --to /tmp/old`
@@ -162,6 +183,8 @@ To browse freely: **Open in file manager** (opens the snapshot in the file manag
 
 ```
 netshift create -c "before kernel update"  Create snapshot
+netshift create --source /dev/…            Back up a non-running system (from a USB stick)
+netshift import-config /dev/…              Take over the settings from the disk
 netshift list                              Show snapshots
 netshift diff 3                            What would restoring no. 3 change?
 netshift restore 3 [--target …]            Restore
