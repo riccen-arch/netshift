@@ -18,12 +18,12 @@ System-Snapshots für Manjaro/Arch – wie Timeshift, aber auch auf **NAS (SMB),
 ## Warum netshift?
 
 netshift ist entstanden, weil mir ein Problem schon lange unter den Nägeln brannte: Ich wollte meine
-Sicherungen nicht zwingend auf lokalen Datenträgern ablegen müssen. Stattdessen sollten die Snapshots –
-so einfach, wie man es von Timeshift kennt – direkt auf einem Laufwerk im Netzwerk landen, ganz ohne
+Sicherungen nicht zwingend auf lokalen Datenträgern ablegen müssen. Stattdessen sollten die Snapshots,
+so einfach, wie man es von Timeshift kennt, direkt auf einem Laufwerk im Netzwerk landen, ganz ohne
 umständliches Hin- und Herkopieren. Genau daraus ist netshift geworden.
 
 Ich lade euch herzlich ein, die Software auf Herz und Nieren zu testen. Alle Testdurchläufe, die ich
-bisher durchgeführt habe, wurden erfolgreich abgeschlossen – über Rückmeldungen und Erfahrungsberichte
+bisher durchgeführt habe, wurden erfolgreich abgeschlossen. Über Rückmeldungen und Erfahrungsberichte
 freue ich mich sehr.
 
 ## Funktionen

@@ -18,12 +18,12 @@ System snapshots for Manjaro/Arch – like Timeshift, but also to a **NAS (SMB),
 ## Why netshift?
 
 netshift was born out of a problem that had been bugging me for a long time: I didn't want to be forced
-to keep my backups on local drives. Instead, my snapshots should go straight to a drive on the network –
-as easily as Timeshift makes it – without any tedious copying back and forth. That is exactly what
+to keep my backups on local drives. Instead, my snapshots should go straight to a drive on the network,
+as easily as Timeshift makes it, without any tedious copying back and forth. That is exactly what
 netshift became.
 
 You are warmly invited to put the software through its paces. Every test run I have carried out so far
-has completed successfully – I'd be very happy to hear about your feedback and experiences.
+has completed successfully. I'd be very happy to hear about your feedback and experiences.
 
 ## Features
 
