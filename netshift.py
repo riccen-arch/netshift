@@ -105,7 +105,7 @@ def _(text):
     return _TR.get(text, text)
 
 
-VERSION = "1.1.6"
+VERSION = "1.1.7"
 ETC_DIR = os.environ.get("NETSHIFT_ETC", "/etc/netshift")
 CONFIG_PATH = os.environ.get("NETSHIFT_CONFIG", os.path.join(ETC_DIR, "config.json"))
 RUN_DIR = os.environ.get("NETSHIFT_RUNDIR", "/run/netshift")

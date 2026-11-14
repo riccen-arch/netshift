@@ -1,7 +1,7 @@
 # Lokal aus dem Git-Ordner bauen und installieren:  makepkg -si
 # (Einfacher ohne makepkg: sudo sh install.sh)
 pkgname=netshift
-pkgver=1.1.6
+pkgver=1.1.7
 pkgrel=1
 pkgdesc="System-Snapshots wie Timeshift (rsync) – auch auf SMB-, NFS- und SSH-Netzwerkziele"
 arch=('any')
