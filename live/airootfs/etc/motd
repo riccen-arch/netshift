@@ -1,0 +1,7 @@
+
+  netshift Live
+  -------------
+  Oberfläche starten / start interface:   netshift-live-session
+  Befehle / commands:                     netshift --help
+  WLAN im Terminal / Wi-Fi in terminal:   nmtui
+

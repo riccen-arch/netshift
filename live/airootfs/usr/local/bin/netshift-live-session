@@ -1,0 +1,38 @@
+#!/bin/sh
+# netshift Live – grafische Sitzung auf tty1 (wird aus /root/.zlogin gestartet)
+export XDG_RUNTIME_DIR=/run/user/0
+mkdir -p -m 0700 "$XDG_RUNTIME_DIR" /run/netshift-live
+export NETSHIFT_LIVE=1 NETSHIFT_LIVE_SESSION=1
+export GSETTINGS_BACKEND=memory GTK_A11Y=none NO_AT_BRIDGE=1
+export LANG=C.UTF-8
+
+# Sprache auch per Bootoption möglich: netshift.lang=de / netshift.lang=en
+for a in $(cat /proc/cmdline); do
+    case "$a" in
+        netshift.lang=de) [ -f /run/netshift-live/session.env ] || printf 'export NETSHIFT_LANG=de\nexport XKB_DEFAULT_LAYOUT=de\n' > /run/netshift-live/session.env ;;
+        netshift.lang=en) [ -f /run/netshift-live/session.env ] || printf 'export NETSHIFT_LANG=en\nexport XKB_DEFAULT_LAYOUT=us\n' > /run/netshift-live/session.env ;;
+    esac
+done
+
+fails=0
+while :; do
+    [ -f /run/netshift-live/session.env ] && . /run/netshift-live/session.env
+    start=$(date +%s)
+    cage -s -- python3 /usr/lib/netshift/netshift-gtk.py --live
+    rc=$?
+    [ "$rc" -eq 10 ] && continue                       # Sprache gewechselt → neu starten
+    if [ $(( $(date +%s) - start )) -lt 8 ]; then        # sofort beendet → Grafikproblem?
+        fails=$((fails + 1))
+        if [ "$fails" -eq 2 ]; then
+            export WLR_RENDERER=pixman WLR_NO_HARDWARE_CURSORS=1   # Software-Darstellung versuchen
+        elif [ "$fails" -ge 4 ]; then
+            echo
+            echo "Die grafische Oberflaeche liess sich nicht starten / The graphical interface could not be started."
+            echo "netshift im Terminal / in the terminal:  netshift --help   ·   erneut / again:  netshift-live-session"
+            exit 1
+        fi
+    else
+        fails=0
+    fi
+    sleep 1
+done

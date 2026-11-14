@@ -1,0 +1,55 @@
+name: netshift Live (ISO)
+
+on:
+  push:
+    branches: [live, main]
+    paths: ["live/**", "netshift.py", "netshift-gtk.py", "netshift-gui.py", "po/**", "tools/install-files.sh",
+            ".github/workflows/live-iso.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: archiso installieren
+        run: pacman -Syu --noconfirm --needed archiso git
+      - name: ISO bauen
+        run: bash live/build.sh out
+      - name: Feste Dateinamen für den Download
+        run: |
+          cd out
+          iso=$(ls netshift-live-*.iso | head -1)
+          mv "$iso" netshift-live-x86_64.iso
+          sha256sum netshift-live-x86_64.iso > netshift-live-x86_64.iso.sha256
+          ls -lh
+      - name: Als Release „netshift Live“ veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: live-iso
+          name: "netshift Live – USB-Stick (${{ github.ref_name }})"
+          prerelease: ${{ github.ref_name != 'main' }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Startfähiges netshift-Live-System für einen USB-Stick – Rechner sichern und wiederherstellen, ohne dass er läuft.
+            Bootable netshift live system for a USB stick – back up and restore a computer while it is not running.
+
+            1. `netshift-live-x86_64.iso` herunterladen / download
+            2. Mit Ventoy, balenaEtcher oder `dd` auf einen USB-Stick schreiben / write it to a USB stick
+            3. Davon starten (Secure Boot ggf. ausschalten) / boot from it (disable Secure Boot if needed)
+
+            Stand / built from: ${{ github.sha }}
+          overwrite_files: true
+          files: |
+            out/netshift-live-x86_64.iso
+            out/netshift-live-x86_64.iso.sha256

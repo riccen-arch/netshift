@@ -291,6 +291,8 @@ def load_config(path=None):
     cfg = deep_merge(DEFAULT_CONFIG, data)
     if not cfg.get("machine_name"):
         cfg["machine_name"] = hostname()
+    if os.environ.get("NETSHIFT_LIVE") == "1":
+        cfg["rescue_mode"] = True          # netshift-Live-Stick: sichert nie sich selbst
     return cfg
 
 

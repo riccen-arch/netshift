@@ -9,6 +9,7 @@ import sys
 # pkexec entfernt Umgebungsvariablen – der Starter übergibt Display & Farbschema
 # als Argumente. Muss VOR dem Import von Gtk passieren.
 COLOR_SCHEME = "default"
+LIVE = os.environ.get("NETSHIFT_LIVE") == "1"
 _rest = []
 for _a in sys.argv[1:]:
     if _a.startswith("--wayland-display="):
@@ -21,10 +22,14 @@ for _a in sys.argv[1:]:
         COLOR_SCHEME = _a.split("=", 1)[1]
     elif _a.startswith("--lang="):
         os.environ["NETSHIFT_LANG"] = _a.split("=", 1)[1]
+    elif _a == "--live":
+        LIVE = True
+        os.environ["NETSHIFT_LIVE"] = "1"
     else:
         _rest.append(_a)
 sys.argv[1:] = _rest
-if os.geteuid() == 0:
+LANG_CHOSEN = bool(os.environ.get("NETSHIFT_LANG"))
+if os.geteuid() == 0 and not (LIVE and os.environ.get("XDG_RUNTIME_DIR")):
     # Eigenes Laufzeitverzeichnis für root (nie in /run/user/<uid> des Benutzers schreiben)
     _rt = "/run/netshift/xdg"
     os.makedirs(_rt, mode=0o700, exist_ok=True)
@@ -82,6 +87,10 @@ MON = [_("Jan."), _("Feb."), _("März"), _("Apr."), _("Mai"), _("Juni"), _("Juli
        _("Okt."), _("Nov."), _("Dez.")]
 
 CSS = """
+.live-title { font-size: 2.2em; font-weight: 800; }
+.live-action { padding: 22px 18px; border-radius: 16px; }
+.live-action-title { font-size: 1.25em; font-weight: 800; }
+.lang-button { padding: 26px 40px; border-radius: 18px; font-size: 1.4em; font-weight: 700; }
 .pill { padding: 1px 9px; border-radius: 999px; font-size: 0.82em; font-weight: 600; }
 .pill.accent  { background: alpha(@accent_bg_color, 0.16);  color: @accent_color; }
 .pill.success { background: alpha(@success_bg_color, 0.16); color: @success_color; }
@@ -155,11 +164,31 @@ def period_of(epoch):
     return 4, _('Älter')
 
 
+def blkid_types():
+    """{gerät: (dateisystem, uuid)} laut blkid"""
+    res = {}
+    try:
+        out = subprocess.run(["blkid", "-o", "export"], capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        return res
+    cur = {}
+    for line in out.splitlines() + [""]:
+        if not line.strip():
+            if cur.get("DEVNAME") and cur.get("TYPE"):
+                res[cur["DEVNAME"]] = (cur["TYPE"], cur.get("UUID"))
+            cur = {}
+        elif "=" in line:
+            k, v = line.split("=", 1)
+            cur[k] = v
+    return res
+
+
 def lsblk_parts():
     try:
         out = subprocess.run(["lsblk", "-J", "-o", "PATH,UUID,FSTYPE,SIZE,LABEL,MOUNTPOINT,TYPE,MODEL"],
                              capture_output=True, text=True).stdout
         devs = []
+        types = blkid_types()
 
         def walk(lst, parent=None):
             for d in lst:
@@ -174,7 +203,15 @@ def lsblk_parts():
                         d = dict(d, unlocked_from=parent.get("path"), size=d.get("size") or parent.get("size"))
                     devs.append(d)
                 walk(kids, d)
-        walk(json.loads(out).get("blockdevices", []))
+        tree = json.loads(out).get("blockdevices", [])
+
+        def fill(lst):           # ohne udev-Datenbank kennt lsblk das Dateisystem nicht → blkid
+            for d in lst:
+                if not d.get("fstype") and d.get("path") in types:
+                    d["fstype"], d["uuid"] = types[d["path"]]
+                fill(d.get("children") or [])
+        fill(tree)
+        walk(tree)
         return devs
     except Exception:
         return []
@@ -455,10 +492,11 @@ class MainWindow(Adw.ApplicationWindow):
         self.mounted_by_us = False
         self.unlocked = []          # von netshift entsperrte Partitionen
         self._rescue = False
+        self.live_device = None
         self.list_job = None
         self._build()
         self._actions()
-        GLib.idle_add(self.refresh)
+        GLib.idle_add(self.live_start if LIVE else self.refresh)
 
     # ---- Aufbau
     def _build(self):
@@ -470,6 +508,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.btn_create = Gtk.Button(child=Adw.ButtonContent(icon_name="list-add-symbolic", label=_('Snapshot erstellen')),
                                      css_classes=["suggested-action"], action_name="win.create",
                                      tooltip_text=_('Neuen Snapshot erstellen (Strg+N)'))
+        self.btn_home = Gtk.Button(icon_name="go-home-symbolic", tooltip_text=_('Startseite'), visible=False)
+        self.btn_home.connect("clicked", lambda *_x: self.live_start())
+        hb.pack_start(self.btn_home)
         hb.pack_start(self.btn_create)
         self.btn_offline = Gtk.Button(child=Adw.ButtonContent(icon_name="drive-harddisk-symbolic", label=_('Rechner sichern')),
                                       css_classes=["suggested-action"], action_name="win.offline", visible=False,
@@ -516,6 +557,11 @@ class MainWindow(Adw.ApplicationWindow):
         clamp = Adw.Clamp(maximum_size=880, tightening_threshold=600, child=self.list_box)
         self.scroller = Gtk.ScrolledWindow(child=clamp, hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.stack.add_named(self.scroller, "list")
+        if LIVE:
+            self.live = LivePage(self)
+            self.stack.add_named(self.live, "live")
+            self.stack.add_named(LanguagePage(self), "lang")
+            self.stack.connect("notify::visible-child-name", lambda *_x: self._sync_live_header())
         tv.set_content(self.stack)
 
         self.op = OperationPanel(self)
@@ -567,8 +613,36 @@ class MainWindow(Adw.ApplicationWindow):
             self.refresh(quiet=True)
         self.op.start(title, args, done, cancellable)
 
+    # ---- Live-System
+    def live_start(self):
+        if not LANG_CHOSEN:
+            self.stack.set_visible_child_name("lang")
+        else:
+            self.stack.set_visible_child_name("live")
+            self.live.update(rescan=not self.live.systems)
+        return False
+
+    def _sync_live_header(self):
+        page = self.stack.get_visible_child_name()
+        start = page in ("live", "lang")
+        self.btn_home.set_visible(not start)
+        self.btn_offline.set_visible(not start and self._rescue)
+        self.btn_create.set_visible(False)
+        self.refresh_stack.set_visible(not start)
+        self.wtitle.set_title(_('netshift Live'))
+        if start:
+            self.wtitle.set_subtitle(_('Sichern und Wiederherstellen') if page == "live" else "")
+
+    def show_list(self):
+        self.snaps = []
+        self.stack.set_visible_child_name("loading")
+        self.refresh()
+
     # ---- Liste laden
     def refresh(self, quiet=False):
+        if LIVE and self.stack.get_visible_child_name() in ("live", "lang"):
+            self.live.update()
+            return
         if self.busy() or self.list_job:
             return
         if not os.path.exists(ns.CONFIG_PATH):
@@ -607,7 +681,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.btn_create.set_visible(not rescue)
         self.btn_offline.set_visible(rescue)
         self.lookup_action("create").set_enabled(not rescue)
-        self.wtitle.set_title(_('netshift – Rettungssystem') if rescue else "netshift")
+        self.wtitle.set_title(_('netshift Live') if LIVE else _('netshift – Rettungssystem') if rescue else "netshift")
         child = self.list_box.get_first_child()
         while child:
             nxt = child.get_next_sibling()
@@ -949,6 +1023,14 @@ class MainWindow(Adw.ApplicationWindow):
         self._final_quit()
         return True
 
+    def _final_quit_cleanup(self):
+        if self.mounted_by_us:
+            subprocess.run([sys.executable, CORE, "umount"], capture_output=True)
+            self.mounted_by_us = False
+        if self.unlocked:
+            subprocess.run([sys.executable, CORE, "lock"] + sorted(set(self.unlocked)), capture_output=True)
+            self.unlocked = []
+
     def _final_quit(self):
         if self.mounted_by_us:
             subprocess.run([sys.executable, CORE, "umount"], capture_output=True)
@@ -1113,6 +1195,8 @@ class RestoreDialog(DeviceDialog):
                                            lambda: pick_folder(self.d, _('Wurzel des Zielsystems'),
                                                                self.target.set_text)))
         g1.add(self.target)
+        if win.live_device and not self.live():
+            self.target.set_text(win.live_device)
         page.add(g1)
 
         g2 = Adw.PreferencesGroup(title=_('Optionen'))
@@ -1829,6 +1913,9 @@ class SettingsDialog:
                                    label=_('Im Rettungssystem muss der Name genau so lauten wie beim gesicherten Rechner (z.B. meinrechner) – sonst findet netshift dessen Sicherung nicht.'))
         g.add(self.name_hint)
         self.sw_rescue.connect("notify::active", lambda *_x: self.sync_rescue())
+        if LIVE:
+            self.sw_rescue.set_active(True)
+            self.sw_rescue.set_visible(False)
         p.add(g)
 
         g = Adw.PreferencesGroup(title=_('Sicherungsziel'))
@@ -2172,6 +2259,576 @@ class SettingsDialog:
 
 
 # --------------------------------------------------------------------------- App
+
+# --------------------------------------------------------------------------- Live-System (USB-Stick)
+
+LINUX_FS = {"ext4", "ext3", "ext2", "btrfs", "xfs", "f2fs", "jfs", "reiserfs"}
+SESSION_ENV = "/run/netshift-live/session.env"
+
+
+def net_status():
+    """(art, text) der aktuellen Netzwerkverbindung – über NetworkManager."""
+    if not shutil.which("nmcli"):
+        return None, _('Netzwerkstatus unbekannt')
+    try:
+        out = subprocess.run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"],
+                             capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return None, _('Netzwerkstatus unbekannt')
+    best = None
+    for line in out.splitlines():
+        parts = line.replace("\\:", "\x00").split(":")
+        if len(parts) < 4:
+            continue
+        dev, typ, state, con = (x.replace("\x00", ":") for x in parts[:4])
+        if not state.startswith("connected") or typ in ("loopback", "bridge", "tun"):
+            continue
+        if typ == "ethernet":
+            return "lan", _('Verbunden über LAN-Kabel ({0})').format(dev)
+        if typ == "wifi" and best is None:
+            best = ("wifi", _('Verbunden über WLAN: {0}').format(con))
+    if best:
+        return best
+    return "none", _('Nicht verbunden – LAN-Kabel einstecken oder WLAN wählen')
+
+
+def run_terminal():
+    for t in ("foot", "kgx", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"):
+        if shutil.which(t):
+            subprocess.Popen([t], start_new_session=True)
+            return True
+    return False
+
+
+class LanguagePage(Gtk.Box):
+    """Erste Seite des Live-Sticks: Sprache (und damit Tastaturbelegung) wählen."""
+
+    def __init__(self, win):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=26, valign=Gtk.Align.CENTER,
+                         halign=Gtk.Align.CENTER, margin_start=24, margin_end=24)
+        self.win = win
+        self.append(Gtk.Image(icon_name="drive-harddisk-system-symbolic", pixel_size=72, css_classes=["dim-label"]))
+        self.append(Gtk.Label(label="netshift Live", css_classes=["live-title"]))
+        self.append(Gtk.Label(label="Sprache wählen · Choose your language", css_classes=["dim-label"]))
+        box = Gtk.Box(spacing=18, halign=Gtk.Align.CENTER, homogeneous=True)
+        for code, label, kb in (("de", "Deutsch", "de"), ("en", "English", "us")):
+            b = Gtk.Button(label=label, css_classes=["card", "lang-button"])
+            b.connect("clicked", lambda _b, c=code, k=kb: self.choose(c, k))
+            box.append(b)
+        self.append(box)
+        self.kb = Gtk.DropDown.new_from_strings(["Tastatur/Keyboard: automatisch", "de", "us", "gb", "ch", "at", "fr", "it", "es", "nl", "pl"])
+        self.kb.set_halign(Gtk.Align.CENTER)
+        self.append(self.kb)
+
+    def choose(self, lang, kb):
+        sel = self.kb.get_selected()
+        if sel > 0:
+            kb = self.kb.get_model().get_string(sel)
+        env = {"NETSHIFT_LANG": lang, "XKB_DEFAULT_LAYOUT": kb,
+               "LANG": "de_DE.UTF-8" if lang == "de" else "en_US.UTF-8"}
+        if os.environ.get("NETSHIFT_LIVE_SESSION") == "1":
+            # Die Sitzung startet die Oberfläche mit Sprache und Tastatur neu
+            os.makedirs(os.path.dirname(SESSION_ENV), exist_ok=True)
+            with open(SESSION_ENV, "w") as f:
+                f.write("".join(f"export {k}={v}\n" for k, v in env.items()))
+            self.win.get_application().quit()
+            os._exit(10)
+        os.environ.update(env)
+        os.execv(sys.executable, [sys.executable, os.path.realpath(__file__), "--live"])
+
+
+class LivePage(Gtk.ScrolledWindow):
+    """Startseite des Live-Sticks: Netzwerk, Rechner wählen, Sichern oder Wiederherstellen."""
+
+    def __init__(self, win):
+        super().__init__(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        self.win = win
+        self.systems = {}        # Gerät → Ergebnis von „identify“
+        self.rows = {}
+        self.selected = None
+        self.group_cb = None
+        self.scan_queue = []
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=22, margin_top=24, margin_bottom=24,
+                      margin_start=12, margin_end=12)
+        self.set_child(Adw.Clamp(maximum_size=760, child=box))
+        head = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        head.append(Gtk.Label(label="netshift Live", css_classes=["live-title"], xalign=0))
+        head.append(Gtk.Label(label=_('Den Rechner sichern oder wiederherstellen, während er nicht läuft.'),
+                              xalign=0, wrap=True, css_classes=["dim-label"]))
+        box.append(head)
+
+        g = Adw.PreferencesGroup(title=_('Netzwerk'))
+        self.net_row = Adw.ActionRow(title=_('Prüfe Netzwerk…'))
+        self.net_icon = Gtk.Image(icon_name="network-wired-symbolic")
+        self.net_row.add_prefix(self.net_icon)
+        bw = Gtk.Button(label=_('WLAN…'), valign=Gtk.Align.CENTER, css_classes=["pill"])
+        bw.connect("clicked", lambda *_x: WifiDialog(self.win).present(self.win))
+        self.net_row.add_suffix(bw)
+        g.add(self.net_row)
+        box.append(g)
+
+        self.g_sys = Adw.PreferencesGroup(title=_('Rechner'),
+                                          description=_('Die Systempartition des Rechners, der gesichert oder wiederhergestellt werden soll.'))
+        rb = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"],
+                        tooltip_text=_('Laufwerke neu suchen'))
+        rb.connect("clicked", lambda *_x: self.scan())
+        self.g_sys.set_header_suffix(rb)
+        self.sys_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["boxed-list"])
+        self.g_sys.add(self.sys_list)
+        self.other = Adw.EntryRow(title=_('Andere Partition oder neue Festplatte (z.B. /dev/sda2)'))
+        self.other.add_suffix(device_menu_button(lambda d: self.other.set_text(d["path"])))
+        self.other.connect("changed", lambda *_x: self._other_changed())
+        box.append(self.g_sys)
+        g_other = Adw.PreferencesGroup()
+        g_other.add(self.other)
+        box.append(g_other)
+
+        acts = Gtk.Box(spacing=14, homogeneous=True)
+        self.b_backup = self._action("drive-harddisk-symbolic", _('Rechner sichern'),
+                                     _('Snapshot der Festplatte auf das Sicherungsziel'), self.backup)
+        self.b_restore = self._action("edit-undo-symbolic", _('Wiederherstellen'),
+                                      _('Einen Snapshot auf die Festplatte zurückspielen'), self.restore)
+        acts.append(self.b_backup)
+        acts.append(self.b_restore)
+        box.append(acts)
+
+        foot = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=6)
+        for label, icon, cb in ((_('Sprache'), "preferences-desktop-locale-symbolic",
+                                 lambda: self.win.stack.set_visible_child_name("lang")),
+                                (_('Einstellungen'), "emblem-system-symbolic", self.win.open_settings),
+                                (_('Terminal'), "utilities-terminal-symbolic",
+                                 lambda: run_terminal() or self.win.toast(_('Kein Terminal gefunden'))),
+                                (_('Neu starten'), "system-reboot-symbolic", lambda: self.power("reboot")),
+                                (_('Ausschalten'), "system-shutdown-symbolic", lambda: self.power("poweroff"))):
+            b = Gtk.Button(child=Adw.ButtonContent(icon_name=icon, label=label), css_classes=["flat"])
+            b.connect("clicked", lambda _b, f=cb: f())
+            foot.append(b)
+        box.append(foot)
+        GLib.timeout_add_seconds(5, self._tick)
+
+    def _action(self, icon, title, sub, cb):
+        b = Gtk.Button(css_classes=["card", "live-action"])
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        v.append(Gtk.Image(icon_name=icon, pixel_size=36, css_classes=["accent"]))
+        v.append(Gtk.Label(label=title, css_classes=["live-action-title"]))
+        v.append(Gtk.Label(label=sub, wrap=True, justify=Gtk.Justification.CENTER, css_classes=["dim-label"]))
+        b.set_child(v)
+        b.connect("clicked", lambda *_x: cb())
+        return b
+
+    # ---- Anzeige
+    def _tick(self):
+        if self.win.stack.get_visible_child_name() == "live":
+            self.update_net()
+        return True
+
+    def update(self, rescan=False):
+        self.update_net()
+        if rescan:
+            self.scan()
+
+    def update_net(self):
+        def work():
+            kind, text = net_status()
+            GLib.idle_add(self._show_net, kind, text)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_net(self, kind, text):
+        self.net_row.set_title(GLib.markup_escape_text(text))
+        self.net_icon.set_from_icon_name({"wifi": "network-wireless-symbolic", "lan": "network-wired-symbolic"}
+                                         .get(kind, "network-offline-symbolic"))
+        self.net_icon.set_css_classes(["success"] if kind in ("wifi", "lan") else ["warning"] if kind else [])
+        self.net_row.set_subtitle(_('Für große Datenmengen ist ein LAN-Kabel schneller und zuverlässiger.')
+                                  if kind == "wifi" else "")
+        return False
+
+    # ---- Laufwerke
+    def scan(self):
+        child = self.sys_list.get_first_child()
+        while child:
+            nxt = child.get_next_sibling()
+            self.sys_list.remove(child)
+            child = nxt
+        self.rows, self.group_cb = {}, None
+        old_sel, self.selected = self.selected, None
+        devs = [d for d in lsblk_parts()
+                if d.get("locked") or ((d.get("fstype") in LINUX_FS) and d.get("mountpoint") != "/")]
+        if not devs:
+            self.sys_list.append(Adw.ActionRow(title=_('Keine Linux-Partition gefunden'),
+                                               subtitle=_('Für eine neue Festplatte unten das Gerät angeben.')))
+        self.scan_queue = []
+        for d in devs:
+            row, cb = self._dev_row(d)
+            self.sys_list.append(row)
+            if not d.get("locked"):
+                self.scan_queue.append(d["path"])
+        self._next_identify(old_sel)
+
+    def _dev_row(self, d):
+        path = d["path"]
+        row = Adw.ActionRow(title=path, subtitle=GLib.markup_escape_text(dev_subtitle(d)))
+        cb = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+        if d.get("locked"):
+            row.add_prefix(Gtk.Image(icon_name="channel-secure-symbolic"))
+            b = Gtk.Button(label=_('Entsperren…'), valign=Gtk.Align.CENTER, css_classes=["pill"])
+            b.connect("clicked", lambda *_x: self.unlock(path))
+            row.add_suffix(b)
+            row.set_activatable_widget(b)
+        else:
+            if self.group_cb:
+                cb.set_group(self.group_cb)
+            else:
+                self.group_cb = cb
+            row.add_prefix(cb)
+            row.set_activatable_widget(cb)
+            cb.connect("toggled", lambda c, p=path: c.get_active() and self._select(p))
+            self.rows[path] = (row, cb)
+        return row, cb
+
+    def _next_identify(self, prefer=None):
+        if not self.scan_queue:
+            # Vorauswahl: das zuvor gewählte oder das erste gefundene Linux-System
+            found = [p for p, r in self.systems.items() if r.get("linux") and p in self.rows]
+            pick = prefer if prefer in found else (found[0] if found else None)
+            if pick:
+                self.rows[pick][1].set_active(True)
+            return
+        dev = self.scan_queue.pop(0)
+
+        def done(rc, lines):
+            try:
+                res = json.loads(lines[-1])
+            except (ValueError, IndexError):
+                res = {}
+            self.systems[dev] = res
+            if dev in self.rows:
+                row = self.rows[dev][0]
+                if res.get("linux"):
+                    row.set_title(GLib.markup_escape_text(_('{os} · Rechner „{host}“').format(
+                        os=res.get("os") or "Linux", host=res.get("host") or res.get("name") or "?")))
+                    extra = _('netshift eingerichtet') if res.get("netshift") else _('netshift nicht eingerichtet')
+                    row.set_subtitle(GLib.markup_escape_text(dev + " · " + row.get_subtitle() + " · " + extra))
+                else:
+                    row.set_subtitle(GLib.markup_escape_text(row.get_subtitle() + " · " + _('kein Linux-System')))
+            self._next_identify(prefer)
+        Job(["identify", dev], None, done)
+
+    def _select(self, path):
+        self.selected = path
+        if self.other.get_text():
+            self.other.set_text("")
+
+    def _other_changed(self):
+        if self.other.get_text().strip() and self.selected and self.selected in self.rows:
+            # Freie Eingabe hat Vorrang vor der Liste
+            for _row, cb in self.rows.values():
+                cb.set_active(False)
+            self.selected = None
+
+    def unlock(self, dev, retry=False):
+        d = Adw.AlertDialog(heading=_('Verschlüsselte Partition entsperren'),
+                            body=((_('Das Passwort war falsch. ') if retry else "")
+                                  + _('{dev} ist verschlüsselt. Gib das Passwort ein, mit dem du den Rechner beim Starten entsperrst.').format(dev=dev)))
+        pw = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
+        d.set_extra_child(pw)
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("unlock", _('Entsperren'))
+        d.set_response_appearance("unlock", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("unlock")
+        d.set_close_response("cancel")
+
+        def resp(_d, r):
+            if r != "unlock" or not pw.get_text():
+                return
+            self.win.toast(_('Entsperre…'), 2)
+
+            def done(rc, lines):
+                path = lines[-1].strip() if lines else ""
+                if rc == 0 and path.startswith("/dev/"):
+                    if path.startswith("/dev/mapper/netshift-"):
+                        self.win.unlocked.append(path)
+                    self.selected = path
+                    self.scan()
+                    GLib.timeout_add(400, lambda: self._prefer(path))
+                elif rc == 3:
+                    self.unlock(dev, retry=True)
+                else:
+                    self.win.show_text(_('Entsperren fehlgeschlagen'), Job.error_of(lines))
+            Job(["unlock", dev, "--stdin"], None, done, input=pw.get_text())
+        d.connect("response", resp)
+        d.present(self.win)
+        pw.grab_focus()
+
+    def _prefer(self, path):
+        if self.scan_queue:
+            return True
+        if path in self.rows:
+            self.rows[path][1].set_active(True)
+        return False
+
+    # ---- Aktionen
+    def device(self):
+        t = self.other.get_text().strip()
+        return t or self.selected
+
+    def power(self, what):
+        d = Adw.AlertDialog(heading=_('Neu starten?') if what == "reboot" else _('Ausschalten?'),
+                            body=_('Den USB-Stick erst abziehen, wenn der Rechner aus ist.') if what == "poweroff" else "")
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("ok", _('Neu starten') if what == "reboot" else _('Ausschalten'))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+        d.set_close_response("cancel")
+
+        def resp(_d, r):
+            if r == "ok":
+                self.win._final_quit_cleanup()
+                subprocess.Popen(["systemctl", what])
+        d.connect("response", resp)
+        d.present(self.win)
+
+    def _prepare(self, then, need_system):
+        """Sicherungsziel und Rechnername klären, dann then(gerät) ausführen."""
+        dev = self.device()
+        if not dev:
+            self.win.toast(_('Bitte zuerst den Rechner (die Systempartition) auswählen'), 4)
+            return
+        if dev.startswith(("/dev/", "UUID=")) and ns.is_luks(dev) and not ns.luks_children(dev):
+            self.unlock(dev)
+            return
+        info = self.systems.get(dev)
+        if info is None and need_system:
+            # frei eingegebenes Gerät: erst erkennen
+            def got(rc, lines):
+                try:
+                    self.systems[dev] = json.loads(lines[-1])
+                except (ValueError, IndexError):
+                    self.systems[dev] = {}
+                self._prepare(then, need_system)
+            Job(["identify", dev], None, got)
+            return
+        info = info or {}
+        if need_system and not info.get("linux"):
+            self.win.show_text(_('Kein Linux-System gefunden'),
+                               _('Bitte die Systempartition des Rechners wählen (die mit /etc).'))
+            return
+        have = os.path.exists(ns.CONFIG_PATH)
+        nsinfo = info.get("netshift")
+        same = False
+        if have and nsinfo:
+            try:
+                same = ns.Target(ns.load_config()).describe() == nsinfo["target"]
+            except Exception:
+                same = False
+        if nsinfo and (not have or not same):
+            if not have:
+                return self._import(dev, info, then)
+            d = Adw.AlertDialog(heading=_('Sicherungsziel übernehmen?'),
+                                body=_('Auf der Festplatte ist als Sicherungsziel „{0}“ eingetragen. Soll netshift dieses Ziel verwenden?').format(nsinfo["target"]))
+            d.add_response("keep", _('Bisheriges behalten'))
+            d.add_response("take", _('Übernehmen'))
+            d.set_response_appearance("take", Adw.ResponseAppearance.SUGGESTED)
+            d.set_close_response("keep")
+            d.connect("response", lambda _d, r: self._import(dev, info, then) if r == "take"
+                      else self._ensure(dev, info, then))
+            d.present(self.win)
+            return
+        self._ensure(dev, info, then)
+
+    def _import(self, dev, info, then):
+        def done(rc, lines):
+            if rc != 0:
+                self.win.show_text(_('Einstellungen konnten nicht übernommen werden'), Job.error_of(lines))
+                return
+            self.win.toast(_('Sicherungsziel von der Festplatte übernommen'), 3)
+            self._ensure(dev, info, then)
+        Job(["import-config", dev, "--yes"], None, done)
+
+    def _ensure(self, dev, info, then):
+        cfg = ns.load_config()
+        name = info.get("name")
+        valid = os.path.exists(ns.CONFIG_PATH)
+        try:
+            ns.Target(cfg).validate()
+        except ns.NetshiftError:
+            valid = False
+        if not valid:
+            # Noch kein Sicherungsziel: Einstellungen öffnen, danach geht es weiter
+            sd = SettingsDialog(self.win)
+            if name:
+                sd.e_name.set_text(name)
+            self.win.toast(_('Bitte das Sicherungsziel eintragen'), 4)
+
+            def closed(*_x):
+                try:
+                    ns.Target(ns.load_config()).validate()
+                    ok = os.path.exists(ns.CONFIG_PATH)
+                except ns.NetshiftError:
+                    ok = False
+                if ok:
+                    GLib.timeout_add(300, lambda: self._ensure(dev, info, then) and False)
+            sd.d.connect("closed", closed)
+            sd.present(self.win)
+            return
+        if name and cfg.get("machine_name") != name:
+            cfg["machine_name"] = name
+            Job(["config", "--set-json"], None, lambda *_x: then(dev), input=json.dumps(cfg))
+            return
+        then(dev)
+
+    def backup(self):
+        def go(dev):
+            self.win.live_device = dev
+            self.win.show_list()
+            GLib.timeout_add(600, lambda: self._start_backup(dev))
+        self._prepare(go, need_system=True)
+
+    def _start_backup(self, dev):
+        if self.win.list_job:
+            return True
+        self.win.run_op(_('Rechner wird gesichert'), ["create", "--source", dev],
+                        lambda rc, l: rc == 0 and self.win.toast(_('Snapshot erstellt')))
+        return False
+
+    def restore(self):
+        def go(dev):
+            self.win.live_device = dev
+            self.win.show_list()
+            self.win.toast(_('Snapshot auswählen und auf „Wiederherstellen“ klicken'), 5)
+        self._prepare(go, need_system=False)
+
+
+class WifiDialog:
+    """WLAN suchen und verbinden (NetworkManager)."""
+
+    def __init__(self, win):
+        self.win = win
+        self.d, page, foot, self.toasts = dialog_shell(_('WLAN'), 520, 560)
+        self.g = Adw.PreferencesGroup(title=_('Netzwerke in der Nähe'))
+        rb = Gtk.Button(icon_name="view-refresh-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"],
+                        tooltip_text=_('Neu suchen'))
+        rb.connect("clicked", lambda *_x: self.scan(rescan=True))
+        self.g.set_header_suffix(rb)
+        self.lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["boxed-list"])
+        self.g.add(self.lb)
+        page.add(self.g)
+        g2 = Adw.PreferencesGroup()
+        self.hidden = Adw.EntryRow(title=_('Verstecktes Netzwerk: Name (SSID)'))
+        self.hidden.set_show_apply_button(True)
+        self.hidden.connect("apply", lambda *_x: self.ask_pw(self.hidden.get_text().strip(), True, hidden=True))
+        g2.add(self.hidden)
+        page.add(g2)
+        if not shutil.which("nmcli"):
+            self.lb.append(Adw.ActionRow(title=_('NetworkManager (nmcli) ist nicht verfügbar.')))
+        else:
+            self.scan()
+
+    def present(self, parent):
+        self.d.present(parent)
+
+    def _clear(self):
+        child = self.lb.get_first_child()
+        while child:
+            nxt = child.get_next_sibling()
+            self.lb.remove(child)
+            child = nxt
+
+    def scan(self, rescan=False):
+        self._clear()
+        self.lb.append(Adw.ActionRow(title=_('Suche Netzwerke…')))
+
+        def work():
+            try:
+                subprocess.run(["nmcli", "radio", "wifi", "on"], capture_output=True, timeout=10)
+                out = subprocess.run(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list",
+                                      "--rescan", "yes" if rescan else "auto"],
+                                     capture_output=True, text=True, timeout=30).stdout
+            except Exception:
+                out = ""
+            nets = {}
+            for line in out.splitlines():
+                parts = line.replace("\\:", "\x00").split(":")
+                if len(parts) < 4:
+                    continue
+                use, ssid, sig, sec = (x.replace("\x00", ":") for x in parts[:4])
+                if not ssid:
+                    continue
+                try:
+                    sig = int(sig)
+                except ValueError:
+                    sig = 0
+                if ssid not in nets or nets[ssid][0] < sig:
+                    nets[ssid] = (sig, sec, use.strip() == "*")
+            GLib.idle_add(self._show, sorted(nets.items(), key=lambda kv: (-kv[1][2], -kv[1][0])))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show(self, nets):
+        self._clear()
+        if not nets:
+            self.lb.append(Adw.ActionRow(title=_('Keine WLAN-Netzwerke gefunden'),
+                                         subtitle=_('Ist WLAN am Rechner eingeschaltet (Taste/Schalter)?')))
+        for ssid, (sig, sec, used) in nets:
+            secure = bool(sec and sec != "--")
+            icon = ("network-wireless-signal-excellent-symbolic" if sig > 75 else
+                    "network-wireless-signal-good-symbolic" if sig > 50 else
+                    "network-wireless-signal-ok-symbolic" if sig > 25 else "network-wireless-signal-weak-symbolic")
+            row = Adw.ActionRow(title=GLib.markup_escape_text(ssid), activatable=not used,
+                                subtitle=_('Verbunden') if used else (_('Geschützt') if secure else _('Offen')))
+            row.add_prefix(Gtk.Image(icon_name=icon))
+            if secure:
+                row.add_suffix(Gtk.Image(icon_name="channel-secure-symbolic", css_classes=["dim-label"]))
+            if used:
+                row.add_suffix(Gtk.Image(icon_name="emblem-ok-symbolic", css_classes=["success"]))
+            else:
+                row.connect("activated", lambda _r, s=ssid, sc=secure: self.ask_pw(s, sc))
+            self.lb.append(row)
+        return False
+
+    def ask_pw(self, ssid, secure, hidden=False):
+        if not ssid:
+            return
+        if not secure:
+            return self.connect(ssid, "", hidden)
+        d = Adw.AlertDialog(heading=_('Mit „{0}“ verbinden').format(ssid), body=_('WLAN-Passwort:'))
+        pw = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
+        d.set_extra_child(pw)
+        d.add_response("cancel", _('Abbrechen'))
+        d.add_response("ok", _('Verbinden'))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("ok")
+        d.set_close_response("cancel")
+        d.connect("response", lambda _d, r: r == "ok" and self.connect(ssid, pw.get_text(), hidden))
+        d.present(self.d)
+        pw.grab_focus()
+
+    def connect(self, ssid, password, hidden=False):
+        self.toasts.add_toast(Adw.Toast(title=_('Verbinde mit {0}…').format(ssid), timeout=3))
+
+        def work():
+            cmd = ["nmcli", "device", "wifi", "connect", ssid]
+            if password:
+                cmd += ["password", password]
+            if hidden:
+                cmd += ["hidden", "yes"]
+            try:
+                p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                ok, msg = p.returncode == 0, (p.stderr or p.stdout).strip()
+            except Exception as e:
+                ok, msg = False, str(e)
+            GLib.idle_add(self._connected, ssid, ok, msg)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _connected(self, ssid, ok, msg):
+        if ok:
+            self.win.toast(_('Verbunden mit {0}').format(ssid), 3)
+            self.d.close()
+            if LIVE:
+                self.win.live.update_net()
+        else:
+            if "Secrets were required" in msg or "802-11-wireless-security" in msg or "password" in msg.lower():
+                msg = _('Das Passwort war falsch.')
+            self.toasts.add_toast(Adw.Toast(title=_('Verbindung fehlgeschlagen: {0}').format(msg[:120]), timeout=6))
+        return False
+
 
 class App(Adw.Application):
     def __init__(self):

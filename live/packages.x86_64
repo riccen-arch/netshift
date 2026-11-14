@@ -1,0 +1,23 @@
+# netshift Live – zusätzlich zum Arch-Standardmedium (releng)
+cage
+foot
+python
+python-gobject
+gtk4
+libadwaita
+adwaita-icon-theme
+cantarell-fonts
+ttf-dejavu
+mesa
+rsync
+cifs-utils
+nfs-utils
+openssh
+e2fsprogs
+btrfs-progs
+cryptsetup
+lvm2
+networkmanager
+polkit
+xdg-utils
+pcmanfm-gtk3

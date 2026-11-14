@@ -38,11 +38,31 @@ LEVEL_LABELS = [("boot", _('Beim Systemstart')), ("hourly", _('Stündlich')), ("
                 ("weekly", _('Wöchentlich')), ("monthly", _('Monatlich'))]
 
 
+def blkid_types():
+    """{gerät: (dateisystem, uuid)} laut blkid"""
+    res = {}
+    try:
+        out = subprocess.run(["blkid", "-o", "export"], capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        return res
+    cur = {}
+    for line in out.splitlines() + [""]:
+        if not line.strip():
+            if cur.get("DEVNAME") and cur.get("TYPE"):
+                res[cur["DEVNAME"]] = (cur["TYPE"], cur.get("UUID"))
+            cur = {}
+        elif "=" in line:
+            k, v = line.split("=", 1)
+            cur[k] = v
+    return res
+
+
 def lsblk_parts():
     try:
         out = subprocess.run(["lsblk", "-J", "-o", "PATH,UUID,FSTYPE,SIZE,LABEL,MOUNTPOINT,TYPE"],
                              capture_output=True, text=True).stdout
         devs = []
+        types = blkid_types()
 
         def walk(lst):
             for d in lst:
@@ -54,7 +74,15 @@ def lsblk_parts():
                         and d.get("fstype") not in ("swap", "LVM2_member"):
                     devs.append(d)
                 walk(kids)
-        walk(json.loads(out).get("blockdevices", []))
+        tree = json.loads(out).get("blockdevices", [])
+
+        def fill(lst):           # ohne udev-Datenbank kennt lsblk das Dateisystem nicht → blkid
+            for d in lst:
+                if not d.get("fstype") and d.get("path") in types:
+                    d["fstype"], d["uuid"] = types[d["path"]]
+                fill(d.get("children") or [])
+        fill(tree)
+        walk(tree)
         return devs
     except Exception:
         return []
